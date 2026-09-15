@@ -1,0 +1,41 @@
+# markpublish.yaml
+#
+# Konfiguration für das offizielle Benutzerhandbuch von Low Poly Colorizer.
+
+document:
+  title: "Low Poly Colorizer"
+  subtitle: "Offizielles Benutzerhandbuch"
+  summary: "Kompakte Referenz zum schnellen Einstieg in die Farbgebung von Low-Poly-Assets in Blender sowie zum optimierten Material- und Textur-Export für Godot 4."
+  author: "Frank Winter"
+  version: "1.0.1"
+  date: "auto"
+  language: "de"
+  copyright: "© 2026 WASDCAT Games"
+  cover: true
+
+  document_toc: 2
+
+theme: "wasdcat"
+
+parts:
+  - part: "Vorwort"
+    break_before: "none"
+    document_toc: "none"
+    autonum_pattern: "none"
+    chapters:
+      - file: "00_vorwort.md"
+
+  - part: "Installation und Schnelleinstieg"
+    break_before: "none"
+    document_toc: "full"
+    chapters:
+      - file: "01_installation_und_schnelleinstieg.md"
+
+  - part: "Bedienung und Referenz"
+    break_before: "none"
+    document_toc: "full"
+    chapters:
+      - file: "02_die_benutzeroberflaeche.md"
+      - file: "03_farbpalette_und_presets.md"
+      - file: "04_engine_export_und_integration.md"
+

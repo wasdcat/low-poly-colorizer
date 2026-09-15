@@ -1,0 +1,50 @@
+name: Release (Attach Package)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  release-package:
+    name: Test, Build & Attach Extension ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+
+      - name: Run test suite & version consistency checks
+        run: |
+          pytest -v
+
+      - name: Validate manifest & tag consistency
+        run: |
+          python scripts/validate_manifest.py --check-tag "${{ github.event.release.tag_name }}"
+
+      - name: Build extension package
+        run: |
+          python scripts/build_dist.py --skip-tests --skip-manuals
+
+      - name: Verify extension package structure
+        run: |
+          python scripts/validate_manifest.py --check-zip dist/*.zip
+
+      - name: Attach ZIP to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+

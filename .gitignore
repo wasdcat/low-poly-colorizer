@@ -1,0 +1,4 @@
+/dist/
+/.markpublish/
+__pycache__/
+*.pyc

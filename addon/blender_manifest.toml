@@ -1,0 +1,19 @@
+schema_version = "1.0.0"
+
+id = "low_poly_colorizer"
+version = "1.0.1"
+name = "Low Poly Colorizer"
+tagline = "Face-material painting with palette picker and Godot export"
+maintainer = "Frank Winter <studio@frankwinter.com>"
+type = "add-on"
+
+website = "https://github.com/wasdcat/low-poly-colorizer"
+support = "https://github.com/wasdcat/low-poly-colorizer/issues"
+
+tags = ["Material", "Import-Export"]
+
+blender_version_min = "4.2.0"
+
+license = [
+  "SPDX:GPL-3.0-or-later",
+]
