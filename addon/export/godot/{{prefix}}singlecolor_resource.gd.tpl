@@ -156,28 +156,28 @@ func apply_to(instance: GeometryInstance3D) -> void:
 ## through the PNG. Nothing an eye resolves, but do not compare the two for
 ## equality.
 static func color_at(x: int, y: int) -> Color:
-	var cx := clampi(x, 0, PALETTE_COLS - 1)
-	var cy := clampi(y, 0, PALETTE_ROWS - 1)
+	var cx: int = clampi(x, 0, PALETTE_COLS - 1)
+	var cy: int = clampi(y, 0, PALETTE_ROWS - 1)
 	# 0.0 = row 0 (lightest) .. 1.0 = last row (darkest); a single-row
 	# palette is all base color, hence the midpoint.
-	var t := float(cy) / float(PALETTE_ROWS - 1) if PALETTE_ROWS > 1 else 0.5
+	var t: float = float(cy) / float(PALETTE_ROWS - 1) if PALETTE_ROWS > 1 else 0.5
 
 	if PALETTE_HAS_GREYSCALE and cx == 0:
-		var grey := 1.0 - t
+		var grey: float = 1.0 - t
 		return Color(grey, grey, grey)
 
 	# The greyscale column sits in front of the wheel, so it shifts the column
 	# index and the number of hues to spread over by the same one.
-	var wheel_start := 1 if PALETTE_HAS_GREYSCALE else 0
-	var hue := float(cx - wheel_start) / float(PALETTE_COLS - wheel_start)
-	var saturation := PALETTE_SATURATION
-	var brightness := PALETTE_BRIGHTNESS
+	var wheel_start: int = 1 if PALETTE_HAS_GREYSCALE else 0
+	var hue: float = float(cx - wheel_start) / float(PALETTE_COLS - wheel_start)
+	var saturation: float = PALETTE_SATURATION
+	var brightness: float = PALETTE_BRIGHTNESS
 	if t <= 0.5:
-		var row_factor := 1.0 - t / 0.5  # 1 = row 0 .. 0 = middle
+		var row_factor: float = 1.0 - t / 0.5  # 1 = row 0 .. 0 = middle
 		saturation = PALETTE_SATURATION * (1.0 - PALETTE_TINT * row_factor)
 		brightness = PALETTE_BRIGHTNESS + (1.0 - PALETTE_BRIGHTNESS) * PALETTE_TINT * row_factor
 	else:
-		var row_factor := (t - 0.5) / 0.5  # 0 = middle .. 1 = last row
+		var row_factor: float = (t - 0.5) / 0.5  # 0 = middle .. 1 = last row
 		saturation = PALETTE_SATURATION + (1.0 - PALETTE_SATURATION) * PALETTE_SHADE * row_factor
 		brightness = PALETTE_BRIGHTNESS * (1.0 - PALETTE_SHADE * row_factor)
 

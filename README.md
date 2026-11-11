@@ -4,7 +4,7 @@
 
 # Low Poly Colorizer
 
-![Version](https://img.shields.io/badge/version-1.0.1-blue)
+![Version](https://img.shields.io/badge/version-1.0.2-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 ![Blender](https://img.shields.io/badge/Blender-4.2%2B-orange)
 ![Godot](https://img.shields.io/badge/Godot-4.x-orange)
@@ -51,7 +51,7 @@ Requirement: **Blender 4.2 LTS or newer** (Extension system).
 2. Search for **Low Poly Colorizer** and click **Install**.
 
 ### Manual Installation (ZIP)
-1. Download `low_poly_colorizer-1.0.1.zip` from [Releases](../../releases) (or build locally using `python scripts/build_dist.py`).
+1. Download `low_poly_colorizer-1.0.2.zip` from [Releases](../../releases) (or build locally using `python scripts/build_dist.py`).
 2. In Blender: **Edit ▸ Preferences ▸ Get Extensions ▸ ▾ (top right menu) ▸ Install from Disk…** and select the ZIP file (or drag & drop the ZIP directly onto the Blender window).
 3. In the 3D Viewport, press `N` to open the sidebar and switch to the **LPC** tab.
 
