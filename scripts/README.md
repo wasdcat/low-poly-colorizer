@@ -36,14 +36,14 @@ Launches Blender in GUI mode with event simulation (`--enable-event-simulate`), 
 
 ### Usage
 
-At least one target directory must be specified as a CLI argument:
+Screenshots are saved to `docs/manual/common/images` by default:
 
 ```powershell
-# Update both language manuals simultaneously:
-python scripts/capture_screenshots.py docs/manual/de/images docs/manual/en/images
+# Standard capture to common images directory:
+python scripts/capture_screenshots.py
 
-# Update only German manual directory:
-python scripts/capture_screenshots.py docs/manual/de/images
+# Or specify custom target directories:
+python scripts/capture_screenshots.py docs/manual/common/images
 ```
 
 ---

@@ -19,7 +19,7 @@ This directory contains the official **User Manual for Low Poly Colorizer (LPC)*
 The screenshots and annotations used throughout this manual can be automatically generated, cropped, and annotated directly from Blender:
 
 ```powershell
-python scripts/capture_screenshots.py docs/manual/de/images docs/manual/en/images
+python scripts/capture_screenshots.py
 ```
 
 ---

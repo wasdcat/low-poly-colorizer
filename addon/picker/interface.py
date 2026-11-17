@@ -173,6 +173,28 @@ if bpy is not None:
             description="How much the darkest row (the last one) is mixed toward black (0 = like the middle row, 1 = black)",
             update=_palette_image_changed,
         )
+        color_mode: bpy.props.EnumProperty(
+            name="Color Mode",
+            items=[
+                ("HSV", "HSV", "Standard HSV color space (classic)"),
+                ("OKLCH", "OKLCH", "Perceptually uniform color space with balanced perceived brightness"),
+            ],
+            default=constants.DEFAULT_PALETTE_COLOR_MODE,
+            description="Color space used to generate the palette ramp",
+            update=_palette_image_changed,
+        )
+        hue_shift: bpy.props.FloatProperty(
+            name="Hue Shift", default=constants.DEFAULT_PALETTE_HUE_SHIFT,
+            min=-1.0, max=1.0,
+            description="Shift highlights toward warm/cool and shadows toward the opposite (0 = none, + = warm highlights / cool shadows)",
+            update=_palette_image_changed,
+        )
+        warmth: bpy.props.FloatProperty(
+            name="Warmth", default=constants.DEFAULT_PALETTE_WARMTH,
+            min=-1.0, max=1.0,
+            description="Global color temperature bias (-1 = cool / blue, +1 = warm / amber)",
+            update=_palette_image_changed,
+        )
 
 
 def _result_color_get(self):
@@ -226,5 +248,8 @@ def params_from_scene(scene):
         "brightness": p.brightness,
         "tint": p.tint,
         "shade": p.shade,
+        "color_mode": getattr(p, "color_mode", constants.DEFAULT_PALETTE_COLOR_MODE),
+        "hue_shift": getattr(p, "hue_shift", constants.DEFAULT_PALETTE_HUE_SHIFT),
+        "warmth": getattr(p, "warmth", constants.DEFAULT_PALETTE_WARMTH),
     }
 

@@ -27,7 +27,7 @@ Für prozedurale Meshes erzeugen Sie über das Preset-Zusatzmenü (**▾**) mit 
 2. Im Node-Editor steuern Sie Palettenzelle $(X, Y)$ sowie das Preset prozedural per Eingangs-Socket. Das Material `lpc_multicolor` übernimmt das Shading automatisch.
 
 
-![Die Node-Gruppe lpc_set_material im Geometry-Nodes-Editor](images/geo_nodes_lpc_set_material.png)
+![Die Node-Gruppe lpc_set_material im Geometry-Nodes-Editor](../common/images/geo_nodes_lpc_set_material.png)
 
 ## Wartung: UV-Maps reparieren (*Fix UV Maps*)
 

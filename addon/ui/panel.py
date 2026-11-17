@@ -109,6 +109,13 @@ class LPC_OT_palette_settings(bpy.types.Operator):
         row.prop(params_pg, "tint")
         row.prop(params_pg, "shade")
 
+        art_box = layout.box()
+        art_box.label(text="Artwork")
+        art_box.prop(params_pg, "color_mode")
+        row = art_box.row(align=True)
+        row.prop(params_pg, "hue_shift")
+        row.prop(params_pg, "warmth")
+
         glob_box = layout.box()
         glob_box.label(text="Globals")
         col = glob_box.column(align=True)

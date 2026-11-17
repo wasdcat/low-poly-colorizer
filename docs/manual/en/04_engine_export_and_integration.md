@@ -26,7 +26,7 @@ For procedural meshes, generate the `lpc_set_material` node group via the preset
 1. LPC constructs the node group and attaches it as a Geometry Nodes modifier to the active object.
 2. In the Node Editor, drive palette coordinates $(X, Y)$ and material preset procedurally through input sockets. The shared `lpc_multicolor` material handles shading automatically.
 
-![The lpc_set_material node group in the Geometry Node Editor](images/geo_nodes_lpc_set_material.png)
+![The lpc_set_material node group in the Geometry Node Editor](../common/images/geo_nodes_lpc_set_material.png)
 
 ## Maintenance: Repairing UV Maps (*Fix UV Maps*)
 

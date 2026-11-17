@@ -6,7 +6,7 @@ Die gesamte Bedienung von Low Poly Colorizer findet in einem kompakten Bedienfel
 
 ## Das N-Panel im Überblick
 
-![Das Low Poly Colorizer N-Panel mit Legende](images/n_panel_annotated.png)
+![Das Low Poly Colorizer N-Panel mit Legende](../common/images/n_panel_annotated.png)
 
 | Nr. | Bereich | Beschreibung |
 |:---:|:---|:---|

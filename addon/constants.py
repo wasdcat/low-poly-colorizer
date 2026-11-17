@@ -73,6 +73,9 @@ DEFAULT_PALETTE_SATURATION = 1.0   # middle row (base color)
 DEFAULT_PALETTE_BRIGHTNESS = 1.0   # middle row (base color)
 DEFAULT_PALETTE_TINT = 0.8         # how far the top row goes toward white
 DEFAULT_PALETTE_SHADE = 0.8        # how far the bottom row goes toward black
+DEFAULT_PALETTE_COLOR_MODE = "HSV" # color space: 'HSV' or 'OKLCH'
+DEFAULT_PALETTE_HUE_SHIFT = 0.0    # highlight/shadow temperature shift (-1..1)
+DEFAULT_PALETTE_WARMTH = 0.0       # global temperature bias (-1..1)
 
 # Default global material values for a fresh file (seed LPC_Globals,
 # model/presets.py); editable per scene in the Settings dialog.

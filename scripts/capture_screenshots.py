@@ -19,11 +19,11 @@ Requirements:
 - Calibrated for a 4K display resolution (3840x2160) with Blender maximized due to simulated UI coordinates.
 
 Usage:
-    python scripts/capture_screenshots.py <output_dir> [<output_dir> ...]
+    python scripts/capture_screenshots.py [<output_dir> ...]
 
 Examples:
-    python scripts/capture_screenshots.py docs/manual/de/images docs/manual/en/images
-    python scripts/capture_screenshots.py docs/manual/de/images
+    python scripts/capture_screenshots.py
+    python scripts/capture_screenshots.py docs/manual/common/images
 """
 
 import argparse
@@ -39,6 +39,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 BLENDER_CANDIDATES = [
     shutil.which("blender"),
+    r"C:\Program Files\Blender Foundation\Blender 5.3\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 5.1\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe",
@@ -403,7 +404,7 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
         # 5. Crop Settings Dialog (settings_annotated.png)
         if shot_settings_raw.is_file():
             im_sett_raw = Image.open(shot_settings_raw)
-            sett_box = (2362, 605, 2841, 1185)
+            sett_box = (2362, 16, 2841, 741)
             sett_cropped = im_sett_raw.crop(sett_box).convert("RGBA")
             sw, sh = sett_cropped.size
 
@@ -418,10 +419,11 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             st_draw = ImageDraw.Draw(sett_canvas)
 
             sett_sections = [
-                (1, 65, 198),   # 1: Grid
-                (2, 206, 295),  # 2: Base Color
-                (3, 303, 392),  # 3: Tint / Shade
-                (4, 400, 521),  # 4: Globals
+                (1, 69, 198),   # 1: Grid
+                (2, 210, 295),  # 2: Base Color
+                (3, 307, 392),  # 3: Tint / Shade
+                (4, 404, 533),  # 4: Artwork
+                (5, 545, 662),  # 5: Globals
             ]
 
             bx = sw + 6
@@ -452,11 +454,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Automated screenshot capture pipeline for Low Poly Colorizer documentation."
     )
+    default_dir = ROOT / "docs" / "manual" / "common" / "images"
     parser.add_argument(
         "output_dirs",
-        nargs="+",
+        nargs="*",
         type=Path,
-        help="One or more target directories where captured and annotated images will be saved (e.g. docs/manual/de/images docs/manual/en/images).",
+        default=[default_dir],
+        help=f"Target directories where captured and annotated images will be saved (default: {default_dir.relative_to(ROOT)}).",
     )
     args = parser.parse_args()
     capture(args.output_dirs)

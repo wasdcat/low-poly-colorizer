@@ -6,7 +6,7 @@ All controls in Low Poly Colorizer are organized within a compact sidebar panel 
 
 ## The N-Panel at a Glance
 
-![The Low Poly Colorizer N-Panel with Legend](images/n_panel_annotated.png)
+![The Low Poly Colorizer N-Panel with Legend](../common/images/n_panel_annotated.png)
 
 | No. | Section | Description |
 |:---:|:---|:---|

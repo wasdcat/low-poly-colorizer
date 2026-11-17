@@ -8,7 +8,7 @@ In Low Poly Colorizer, color values (albedo) and surface characteristics (PBR pa
 
 Clicking the **Palette button** (color picker) in the N-Panel opens the color palette as a hardware-accelerated GPU overlay directly within the 3D Viewport.
 
-![The interactive GPU palette picker](images/palette_picker_annotated.png)
+![The interactive GPU palette picker](../common/images/palette_picker_annotated.png)
 
 | Area | Description |
 |:---:|:---|
@@ -53,11 +53,40 @@ Each preset combines four standardized physical material parameters:
 
 Clicking **Settings…** in the N-Panel opens the configuration dialog for project-wide palette generation and shader parameters. Changes are previewed live; *Cancel* reverts them.
 
-![Global LPC Settings](images/settings_annotated.png)
+![Global LPC Settings](../common/images/settings_annotated.png)
 
 | Area | Description |
 |:---:|:---|
 | **①** | **Grid**: Number of hue columns (*Columns*, excluding the greyscale column) and rows (*Rows*), plus a toggle for the monochrome greyscale column (*Add Greyscale Column*). |
 | **②** | **Base Color**: Base saturation (*Saturation*) and base brightness (*Brightness*) for all hues in the color wheel. |
 | **③** | **Tint / Shade**: Strength of the vertical gradation steps (highlighting via *Tint*, darkening via *Shade*). |
-| **④** | **Globals**: Project-wide parameters including the global emission multiplier (*Emission Factor*) and base clearcoat roughness (*Clearcoat Roughness*). |
+| **④** | **Artwork**: Color space (**Color Mode**: *HSV* or *OKLCH*), vertical temperature drift (**Hue Shift**), and global temperature bias (**Warmth**). |
+| **⑤** | **Globals**: Project-wide parameters including the global emission multiplier (*Emission Factor*) and base clearcoat roughness (*Clearcoat Roughness*). |
+
+---
+
+## Artwork: Color Theory and Shading Harmony
+
+Standard color palettes generated purely in HSV color space often produce jarring artifacts in 3D shading: yellow highlights blow out into blinding white, and dark shadows turn muddy or dirty grey. In stylized 3D art and traditional painting, lighting is rarely a pure value ramp—artists use **temperature contrast** (warm sunlight produces cool ambient shadows).
+
+The **Artwork** section provides controls for pleasing, painterly palettes:
+
+### Color Spaces: HSV vs. OKLCH
+
+* **HSV (Standard / Legacy)**: Purely mathematical color space (`V = max(R, G, B)`). Ensures 100% backward compatibility with existing scenes and provides vibrant 90s-style arcade colors.
+* **OKLCH (Perceptually Uniform)**: Modeled after the human visual cortex. Equal lightness (*L*) corresponds to equal perceived brightness across all hues. Yellows stay rich and luminous without blinding, blues remain vibrant, and shading transitions feel natural.
+
+### Temperature Controls
+
+* **Hue Shift (-1.0 to +1.0)**: Simulates atmospheric shading across the vertical ramp.
+  * *Positive values (0.3 to 0.5)*: Highlights shift warm (sunlight / amber) while shadows drift cool (skylight / violet-blue)—the staple of stylized low-poly art.
+  * *Negative values (-0.3 to -0.5)*: Cool highlights and warm shadows—ideal for moonlight or nocturnal scenes.
+  * *0.0*: Neutral gradient without hue drift.
+* **Warmth (-1.0 to +1.0)**: Global color temperature bias. Gently warms (amber) or cools (sky blue) the entire palette, including the greyscale column.
+
+### Recommended Settings (Recipes)
+
+* **Modern Stylized Low-Poly (Sunlight / Outdoor)**: `OKLCH`, `Hue Shift: 0.35`, `Warmth: 0.15`.
+* **Nocturnal / Sci-Fi / Moonlight**: `OKLCH`, `Hue Shift: -0.35`, `Warmth: -0.25`.
+* **Classic Retro Arcade**: `HSV`, `Hue Shift: 0.0`, `Warmth: 0.0`.
+

@@ -8,7 +8,7 @@ In Low Poly Colorizer werden Farbgebung (Albedo) und Oberflächenbeschaffenheit 
 
 Klicken Sie im N-Panel auf den **Paletten-Button** (Farbwähler), öffnet sich die Farbpalette als hardwarebeschleunigtes GPU-Overlay direkt im 3D-Viewport.
 
-![Der interaktive GPU-Palette-Picker](images/palette_picker_annotated.png)
+![Der interaktive GPU-Palette-Picker](../common/images/palette_picker_annotated.png)
 
 | Bereich | Beschreibung |
 |:---:|:---|
@@ -53,12 +53,41 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 
 Über den Button **Settings…** im N-Panel öffnen Sie das Konfigurationsfenster für projektspezifische Paletten- und Shader-Parameter. Änderungen werden live angezeigt; *Cancel* nimmt sie zurück.
 
-![Die globalen LPC-Einstellungen](images/settings_annotated.png)
+![Die globalen LPC-Einstellungen](../common/images/settings_annotated.png)
 
 | Bereich | Beschreibung |
 |:---:|:---|
 | **①** | **Grid**: Anzahl der Farbton-Spalten (*Columns*, ohne Graustufenspalte) und Zeilen (*Rows*) sowie Umschalter für die monochrome Graustufenspalte (*Add Greyscale Column*). |
 | **②** | **Base Color**: Grundsättigung (*Saturation*) und Basishelligkeit (*Brightness*) aller Farbtöne im Farbkreis. |
 | **③** | **Tint / Shade**: Intensität der vertikalen Abstufungen (Aufhellung durch *Tint*, Abdunklung durch *Shade*). |
-| **④** | **Globals**: Projektweite Parameter wie der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Grund-Rauheit für Klarlack (*Clearcoat Roughness*). |
+| **④** | **Artwork**: Farbraum (**Color Mode**: *HSV* oder *OKLCH*), vertikaler Farbtemperatur-Drift (**Hue Shift**) und globale Farbtemperatur (**Warmth**). |
+| **⑤** | **Globals**: Projektweite Parameter wie der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Grund-Rauheit für Klarlack (*Clearcoat Roughness*). |
+
+---
+
+## Artwork: Farblehre und Shading-Harmonisierung
+
+Klassische Farbpaletten auf Basis des mathematischen HSV-Farbraums führen bei 3D-Shading häufig zu unerwünschten Effekten: Gelbtöne bleichen in hellen Stufen rasch zu grellem Weiß aus, während Blau- und Violetttöne in Schattenstufen schmutzig oder entsättigt wirken. Zudem nutzt professionelle 3D-Grafik und Malerei selten reine Helligkeitsabstufungen, sondern arbeitet mit **Farbtemperatur-Kontrasten** (warmes Sonnenlicht erzeugt kühle Schatten).
+
+Die Sektion **Artwork** bietet gezielte Stellschrauben für harmonische und stilisierte Farbverläufe:
+
+### Farbräume: HSV vs. OKLCH
+
+* **HSV (Standard / Legacy)**: Rein technischer Farbraum (`V = max(R, G, B)`). Garantiert 100 % Abwärtskompatibilität zu bestehenden Projekten und erzeugt den typisch knalligen Retro-Arcade-Look.
+* **OKLCH (Perzeptuell gleichförmig)**: Basiert auf der menschlichen Farbwahrnehmung. Gleiche Helligkeitswerte (*L*) besitzen über das gesamte Farbspektrum dieselbe wahrgenommene Helligkeit. Gelbtöne behalten ihren sonnigen Charakter, Blautöne bleiben klar und Schattenstufen saufen nicht unkontrolliert ab.
+
+### Farbtemperatur-Steuerung
+
+* **Hue Shift (-1.0 bis +1.0)**: Simuliert atmosphärisches Shading.
+  * *Positive Werte (0.3 bis 0.5)*: Highlights driften zur warmen Farbachse (Gelb/Gold), Schatten wandern zur kühlen Achse (Blau/Violett) – ideal für sonnige Außenszenen.
+  * *Negative Werte (-0.3 bis -0.5)*: Kühle Lichter und wärmere Schatten – ideal für Nacht- und Mondscheinszenen.
+  * *0.0*: Neutrale Farbtöne ohne Drift.
+* **Warmth (-1.0 bis +1.0)**: Globaler Farbtemperatur-Bias. Verschiebt das gesamte Farbspektrum sowie die Graustufenspalte subtil in Richtung Bernstein/Gold (+1.0) oder kühles Himmelblau (-1.0).
+
+### Empfohlene Einstellungen (Rezepte)
+
+* **Moderner Low-Poly-Look (Outdoor / Sonne)**: `OKLCH`, `Hue Shift: 0.35`, `Warmth: 0.15`.
+* **Nacht / Sci-Fi / Mondschein**: `OKLCH`, `Hue Shift: -0.35`, `Warmth: -0.25`.
+* **Klassischer Retro-Arcade-Look**: `HSV`, `Hue Shift: 0.0`, `Warmth: 0.0`.
+
 

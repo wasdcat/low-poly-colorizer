@@ -19,7 +19,7 @@ Dieses Verzeichnis enthält das offizielle, deutschsprachige **Benutzerhandbuch 
 Die im Handbuch verwendeten Screenshots können vollständig autonom direkt aus Blender heraus erzeugt, zugeschnitten und annotiert werden:
 
 ```powershell
-python scripts/capture_screenshots.py docs/manual/de/images docs/manual/en/images
+python scripts/capture_screenshots.py
 ```
 
 ---
