@@ -264,3 +264,12 @@ class TestGodotSet(unittest.TestCase):
         # the cell lives in the base only -- a redeclaration would be a parse error
         self.assertNotIn("var palette_cell_x", look)
         self.assertNotIn("const PALETTE", look)
+
+    def test_palette_color_shows_read_only_color_field(self):
+        base = self._render()["lpc_palette_color_resource.gd"]
+        self.assertIn("@export_color_no_alpha var color: Color:", base)
+        self.assertIn("		return get_color()", base)
+        # editor-only and greyed out: never saved to the .tres, cannot be set
+        self.assertIn('if property.name == "color":', base)
+        self.assertIn("PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY", base)
+        self.assertNotIn("PROPERTY_USAGE_STORAGE", base)

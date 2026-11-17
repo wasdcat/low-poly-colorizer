@@ -8,7 +8,7 @@ LPC exports **no mesh geometry** (models are imported as `.blend` or glTF carryi
 
 * **Textures**: `lpc_palette.png` (albedo/colors) and `lpc_preset_lut.png` (PBR lookup table), each with a matching `.import` file, so Godot imports them correctly without any manual settings.
 * **Shaders & Materials**: Preconfigured ShaderMaterials (`.tres`), shaders (`.gdshader`), and shared code (`.gdshaderinc`) – in two variants, `lpc_multicolor` and `lpc_singlecolor`.
-* **Helper Classes**: GDScript class `lpc_palette_color_resource.gd` for a plain palette color (palette cell only, no preset or emission) – e.g. for decals, labels, UI or lights. Derived from it, `lpc_singlecolor_resource.gd` for reusable named looks (palette cell, preset, emission) with a generated `Preset` enum. Both return their cell's color via `get_color()`.
+* **Helper Classes**: GDScript class `lpc_palette_color_resource.gd` for a plain palette color (palette cell only, no preset or emission) – e.g. for decals, labels, UI or lights. Derived from it, `lpc_singlecolor_resource.gd` for reusable named looks (palette cell, preset, emission) with a generated `Preset` enum. Both return their cell's color via `get_color()` and show it in the inspector in the read-only `color` field (never saved, always follows the cell).
 * **Stable UIDs**: Every exported file carries a fixed UID (`.uid` / `.import` file or `.tres` header) that depends only on its file name, so references by UID survive re-exports.
 * **Notes**: `README.md` explaining textures, UIDs and helper classes.
 * **Dirty Flag Tracking**: The export button illuminates in red whenever the last export is out of date and resets to neutral once synchronized.

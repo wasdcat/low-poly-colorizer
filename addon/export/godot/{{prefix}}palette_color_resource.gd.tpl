@@ -99,6 +99,16 @@ const PALETTE: PackedColorArray = [
 			palette_cell_y = value
 			emit_changed()
 
+## The color of the chosen cell, shown read-only in the inspector so the cell
+## numbers are not all you see. Always [method get_color]; never saved -- the
+## cell is the source of truth, so a re-export with changed palette parameters
+## shows the new color here as well.
+@export_color_no_alpha var color: Color:
+	get:
+		return get_color()
+	set(_value):
+		pass
+
 
 ## The color of palette cell ([param x], [param y]) as an opaque [Color] --
 ## the palette carries no alpha, so it stays at 1.0.
@@ -130,3 +140,10 @@ static func color_at(x: int, y: int) -> Color:
 ## folded in, so a lamp look does not come back brighter here.
 func get_color() -> Color:
 	return color_at(palette_cell_x, palette_cell_y)
+
+
+## Shows [member color] in the inspector without saving it, and greyed out:
+## it follows the cell and cannot be set.
+func _validate_property(property: Dictionary) -> void:
+	if property.name == "color":
+		property.usage = PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY
