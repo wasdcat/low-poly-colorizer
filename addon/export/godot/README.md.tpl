@@ -29,7 +29,7 @@ the `.tres` header). It depends only on the file name, so every export writes
 the same UIDs — scenes and resources referencing these files by UID keep
 working across re-exports, fresh checkouts and other machines.
 
-Projects that used an LPC export from before version 1.1 reference these files
+Projects that used an LPC export from before version 1.2 reference these files
 by the random UIDs Godot assigned back then. After the first export with fixed
 UIDs, Godot falls back to the file path, prints a warning once per reference
 and writes the new UID the next time the referencing file is saved. To fix all

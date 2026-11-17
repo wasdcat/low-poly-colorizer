@@ -7,7 +7,7 @@ document:
   subtitle: "Official User Manual"
   summary: "Compact guide for streamlined low-poly asset coloring in Blender and optimized material and texture export for Godot 4."
   author: "Frank Winter"
-  version: "1.1.0"
+  version: "1.2.0"
   date: "auto"
   language: "en"
   copyright: "© 2026 WASDCAT Games"

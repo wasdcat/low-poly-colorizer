@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-11-17
+
+### Added
+- **`lpc_palette_color_resource.gd`** (`LpcPaletteColorResource`): new exported GDScript resource holding a plain palette color -- only the palette cell (`palette_cell_x` / `palette_cell_y`), no preset, no emission -- for decals, labels, UI and lights. Provides `get_color()`, the static `color_at(x, y)`, the `PALETTE_*` parameter constants and the precomputed `PALETTE` array. Unlike a fixed `Color`, it follows palette changes on re-export.
+- **Generated `.import` files** for `lpc_palette.png` and `lpc_preset_lut.png`: Godot imports both data textures correctly right away (lossless, no VRAM compression, no mipmaps, Fix Alpha Border off). Every export restores these settings.
+- **Stable UIDs** for every exported file (`.uid` files for scripts and shaders, `uid=` in the `.import` files and `.tres` headers), derived deterministically from the output filename (`exporter.stable_uid`). Re-exports, fresh checkouts and other machines always produce the same UIDs, so references by UID keep resolving. The materials now reference their shader and textures by UID as well as by path.
+- Export registry: per-target flags `palette_texture` / `preset_texture` decide which data textures a template set ships; the palette (`palette_colors_gdscript`) and the presets (`preset_values_glsl`) are additionally available to templates as text.
+
+### Changed
+- `LpcSinglecolorResource` now **extends** `LpcPaletteColorResource` and only adds `preset`, `emission_override` and `apply_to()`. Exports typed as the palette color accept full looks as well. Existing look `.tres` files keep working unchanged (same property names).
+- The exported `README.md` no longer walks through manual texture import settings.
+
+### Fixed
+- `color_at()` / `get_color()` in the exported GDScript ignored the Artwork settings: they recomputed colors with the plain HSV formula, so with `OKLCH`, Hue Shift or Warmth the returned color differed from what the shaders render. They now read the `PALETTE` array written from the add-on's own `color_at`, so script and shader agree in every color mode.
+
+### Upgrade notes
+- Projects using an export from before 1.2 reference the exported files by the random UIDs Godot assigned back then. After the first 1.2 export, Godot falls back to the file path and warns once per reference; re-save the referencing files or replace the old UIDs project-wide. From then on the UIDs never change.
+
 ## [1.1.0] - 2026-11-17
 
 ### Added

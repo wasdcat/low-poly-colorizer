@@ -14,11 +14,15 @@ placeholders are substituted from the scene's material parameters
 prefix), the `.tpl` marker is dropped from the written filename, and literal
 braces in the body are left intact (so shader code survives).
 
-Alongside the rendered templates, `write_textures` writes the palette + the
-preset LUT as PNGs -- binary data the `.tpl` text-substitution mechanism
-can't carry, so it's a separate step in `LPC_OT_export.execute`, not another
-template. The palette also travels as text (`palette_colors_gdscript`), for
-code that needs a cell's color without sampling the texture.
+The palette and the presets reach a target as images, as text, or both.
+Images: `write_textures` writes the palette and/or the preset LUT as PNGs --
+binary data the `.tpl` text-substitution mechanism can't carry, so it's a
+separate step in `LPC_OT_export.execute`, not another template; which of the
+two a set gets is its registry entry's call (`palette_texture` /
+`preset_texture`). Text: `build_context` always carries both as ready-made
+array bodies (`palette_colors_gdscript`, `preset_values_glsl`), so a template
+can bake them into its source. The Godot set ships both textures and uses
+the palette array for GDScript only (its resource script's color_at).
 
 Every exported file can carry a STABLE ID (`stable_uid`): derived from its
 output filename alone, so re-exporting -- into the same project or a fresh
@@ -65,8 +69,9 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 # / {{preset_lut_image_filename}} placeholders (build_context), so the names
 # live here in one place and stay in sync between the written PNGs and the
 # ExtResource paths pointing at them. Prefixed via constants.PREFIX like every
-# other exported filename. Their `.import` sidecar templates are named after
-# them ({{prefix}}palette.png.import.tpl), so a rename must touch both.
+# other exported filename. A shipped texture's `.import` sidecar template is
+# named after it ({{prefix}}palette.png.import.tpl), so a rename must touch
+# both.
 PALETTE_IMAGE_FILENAME = constants.PREFIX + "palette.png"
 PRESET_LUT_IMAGE_FILENAME = constants.PREFIX + "preset_lut.png"
 
@@ -110,6 +115,41 @@ def _palette_colors_gdscript(params):
         "\t" + ", ".join(f"Color({_lit(r)}, {_lit(g)}, {_lit(b)})" for r, g, b in row)
         for row in _palette_rows(params)
     )
+
+
+def _preset_values(scene):
+    """(roughness, metallic, clearcoat, emission) per preset IN LIST ORDER --
+    the same layout and order as `model_presets.build_preset_lut_pixels`, one
+    entry per LUT texel, so the list position on a face indexes it directly.
+    Read straight off the scene (not via that function) because it lives in
+    presets.py's bpy-only layer, and this must stay testable without Blender.
+
+    An empty preset list still yields one all-zero entry, mirroring the LUT's
+    1x1 minimum and `build_context`'s `max(len(...), 1)` preset_count: a
+    shader array cannot have zero elements."""
+    values = [
+        (p.roughness, p.metallic, p.clearcoat, p.emission)
+        for p in scene.lpc_presets
+    ]
+    return values or [(0.0, 0.0, 0.0, 0.0)]
+
+
+def _preset_values_glsl(scene):
+    """The presets as the body of a GLSL-style `vec4` array initializer, one
+    preset per line with its list position and name as a comment -- the
+    shader-side twin of `_preset_legend`. The last entry has no comma: GLSL
+    does not allow a trailing one."""
+    names = [p.name for p in scene.lpc_presets] or ["(no presets)"]
+    values = _preset_values(scene)
+    lines = []
+    for i, (value, name) in enumerate(zip(values, names)):
+        comma = "," if i < len(values) - 1 else ""
+        vec = ", ".join(_lit(v) for v in value)
+        # Collapse whitespace: a newline in a preset name would end the
+        # comment and turn the rest of the name into shader code.
+        safe_name = " ".join(str(name).split())
+        lines.append(f"\tvec4({vec}){comma} // {i} = {safe_name}")
+    return "\n".join(lines)
 
 
 def _preset_legend(scene):
@@ -245,6 +285,12 @@ def build_context(scene):
         # model_palette.color_at, so it follows every palette parameter
         # (color mode, hue shift, warmth, ...) with nothing to port.
         "palette_colors_gdscript": _palette_colors_gdscript(params),
+        # The presets as the body of a shader vec4 array initializer, one per
+        # line, in list order: (roughness, metallic, clearcoat, emission),
+        # emission raw (before emission_factor). For sets that ship no preset
+        # LUT (registry "preset_texture": False) -- exact values, no 8-bit
+        # rounding, nothing for a texture import to alter.
+        "preset_values_glsl": _preset_values_glsl(scene),
         "palette_image_filename": PALETTE_IMAGE_FILENAME,
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),
@@ -294,17 +340,21 @@ def _mark_exported(scene):
     scene.lpc_export_fingerprint = export_fingerprint(scene)
 
 
-def write_textures(scene, out_dir):
-    """Write the palette + preset LUT images as PNGs into `out_dir`, via
-    Blender's own `Image.save()` -- guarantees the exported pixels are
-    byte-identical to whatever the Blender preview just sampled (no separate
-    encoder to risk a rounding/gamma divergence). Returns the list of written
-    filenames."""
+def write_textures(scene, out_dir, set_id):
+    """Write the palette and/or preset LUT images as PNGs into `out_dir` --
+    whichever `set_id`'s registry entry asks for (`palette_texture` /
+    `preset_texture`) -- via Blender's own `Image.save()`, which guarantees
+    the exported pixels are byte-identical to whatever the Blender preview
+    just sampled (no separate encoder to risk a rounding/gamma divergence).
+    Returns the list of written filenames."""
+    wanted = []
+    if registry.writes_palette_texture(set_id):
+        wanted.append((preview_material.ensure_palette_image, PALETTE_IMAGE_FILENAME))
+    if registry.writes_preset_texture(set_id):
+        wanted.append((preview_material.ensure_preset_lut_image, PRESET_LUT_IMAGE_FILENAME))
     written = []
-    for image, filename in (
-        (preview_material.ensure_palette_image(scene), PALETTE_IMAGE_FILENAME),
-        (preview_material.ensure_preset_lut_image(scene), PRESET_LUT_IMAGE_FILENAME),
-    ):
+    for ensure_image, filename in wanted:
+        image = ensure_image(scene)
         path = os.path.join(out_dir, filename)
         image.filepath_raw = path
         image.file_format = "PNG"
@@ -430,7 +480,7 @@ EXPORT_TARGET_ITEMS = registry.enum_items()
 
 if bpy is not None:
     class LPC_OT_export(bpy.types.Operator):
-        """Export the selected template set into a chosen folder: the shader(s), material(s), and the palette + preset LUT textures. Pick the target in the dropdown; the per-face references (palette cell + preset index) travel in the lpc UV maps, so import the .blend separately"""
+        """Export the selected template set into a chosen folder: the shader(s), material(s), and the data textures the target uses. Pick the target in the dropdown; the per-face references (palette cell + preset index) travel in the lpc UV maps, so import the .blend separately"""
 
         bl_idname = "lpc.export"
         bl_label = "Export"
@@ -462,7 +512,7 @@ if bpy is not None:
 
             try:
                 written = render_set(set_id, out_dir, build_context(scene))
-                written += write_textures(scene, out_dir)
+                written += write_textures(scene, out_dir, set_id)
             except (OSError, ValueError) as exc:
                 self.report({"ERROR"}, f"Export failed: {exc}")
                 return {"CANCELLED"}

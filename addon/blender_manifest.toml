@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "low_poly_colorizer"
-version = "1.1.0"
+version = "1.2.0"
 name = "Low Poly Colorizer"
 tagline = "Face-material painting with palette picker and Godot export"
 maintainer = "Frank Winter <studio@frankwinter.com>"

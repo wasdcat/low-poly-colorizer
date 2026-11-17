@@ -15,13 +15,14 @@ Low Poly Colorizer (LPC) paints low-poly meshes with colors from a generated pal
 
 LPC does not export geometry. Models go to Godot as usual (`.blend` or glTF), and the per-face data travels in the first two UV maps (UV/UV2 in Godot). All painted faces of a mesh import as a single surface. **Export** writes the matching material package into a folder of your choice:
 
-- `lpc_palette.png`, `lpc_preset_lut.png`: palette and preset data textures
+- `lpc_palette.png`, `lpc_preset_lut.png`: palette and preset data textures, with `.import` files that make Godot import them correctly right away
 - `lpc_multicolor` shader + material: for painted meshes, reads color and preset per face
 - `lpc_singlecolor` shader + material: for any other mesh, one palette color + preset per `MeshInstance3D` via instance uniforms on a single shared material
-- `lpc_singlecolor_resource.gd`: resource class for reusable named looks, with a generated `Preset` enum
-- `README.md`: the texture import settings Godot needs
+- `lpc_palette_color_resource.gd`: resource class for a plain palette color (cell only) for decals, labels, UI or lights
+- `lpc_singlecolor_resource.gd`: derived resource class for reusable named looks, with a generated `Preset` enum
+- `README.md`: notes on textures, UIDs and helper classes
 
-The Export button turns red when the exported files are out of date.
+Every exported file carries a stable UID derived from its file name, so references survive re-exports. The Export button turns red when the exported files are out of date.
 
 The export is template-based: a target is a set of `.tpl` text templates filled with the scene's palette and preset data. Godot 4 is the bundled template set; other engines can be added as further template sets without changes to the exporter.
 

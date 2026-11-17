@@ -172,6 +172,45 @@ class TestStableUid(unittest.TestCase):
         self.assertEqual(uids["uid_multicolor_gdshader"], exporter.stable_uid("lpc_multicolor.gdshader"))
 
 
+class TestPresetArray(unittest.TestCase):
+    """The presets as a shader array body -- for targets without a LUT."""
+
+    def test_in_list_order_with_names(self):
+        lines = exporter._preset_values_glsl(_scene()).splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertIn("vec4(0.8, 0.0, 0.0, 1.0)", lines[1])
+        self.assertIn("// 1 = Lamp", lines[1])
+        self.assertIn("vec4(0.2, 1.0, 0.5, 0.0)", lines[2])
+        self.assertTrue(lines[0].split("//")[0].rstrip().endswith(","))
+        self.assertFalse(lines[2].split("//")[0].rstrip().endswith(","))  # GLSL: no trailing comma
+
+    def test_name_cannot_break_out_of_comment(self):
+        body = exporter._preset_values_glsl(_scene([_preset("Evil\nvoid x(){}")]))
+        self.assertEqual(len(body.splitlines()), 1)
+
+    def test_empty_preset_list_still_yields_one_entry(self):
+        scene = _scene([])
+        self.assertEqual(len(re.findall(r"vec4\(", exporter._preset_values_glsl(scene))), 1)
+        self.assertEqual(exporter.build_context(scene)["preset_count"], "1")
+
+
+class TestRegistryTextures(unittest.TestCase):
+    def test_godot_ships_both_textures(self):
+        self.assertTrue(registry.writes_palette_texture("godot"))
+        self.assertTrue(registry.writes_preset_texture("godot"))
+
+    def test_flags_default_to_true_and_unknown_set_writes_nothing(self):
+        original = registry.TEMPLATE_SETS
+        try:
+            registry.TEMPLATE_SETS = ({"id": "plain", "label": "", "dir": "plain"},)
+            self.assertTrue(registry.writes_palette_texture("plain"))
+            self.assertTrue(registry.writes_preset_texture("plain"))
+            self.assertFalse(registry.writes_palette_texture("nope"))
+            self.assertFalse(registry.writes_preset_texture("nope"))
+        finally:
+            registry.TEMPLATE_SETS = original
+
+
 class TestGodotSet(unittest.TestCase):
     def _render(self, scene=None):
         context = exporter.build_context(scene or _scene())
@@ -186,6 +225,11 @@ class TestGodotSet(unittest.TestCase):
     def test_templates_render_completely(self):
         for name, text in self._render().items():
             self.assertNotRegex(text, r"\{\{\w+\}\}", f"unresolved placeholder in {name}")
+
+    def test_shaders_sample_both_textures(self):
+        common = self._render()["lpc_common.gdshaderinc"]
+        self.assertIn("uniform sampler2D lpc_palette_tex", common)
+        self.assertIn("uniform sampler2D lpc_preset_lut_tex", common)
 
     def test_every_uid_bearing_file_gets_its_sidecar(self):
         texts = self._render()
