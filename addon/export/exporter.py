@@ -188,6 +188,37 @@ def _palette_cell_x_enum(params):
     return ",\n\t\t".join(entries)
 
 
+def _shader_hint_enum(labels):
+    """The argument list of a shader `hint_enum` (Godot 4.4+): one string
+    per label, in order -- hint_enum numbers its entries 0, 1, ...
+    `,` and `:` separate entries / values in Godot's enum hint and become
+    spaces, as in _palette_cell_x_enum. Godot's shader tokenizer knows no
+    escape sequences, so a `"` (which would end the string) becomes `'`
+    and a backslash `/`."""
+    entries = []
+    for label in labels:
+        clean = (" ".join(str(label).split())
+                 .replace(",", " ").replace(":", " ")
+                 .replace('"', "'").replace("\\", "/"))
+        entries.append(f'"{clean}"')
+    return ",\n    ".join(entries)
+
+
+def _palette_cell_x_hint_enum(params):
+    """`hint_enum` arguments for the singlecolor shader's instance uniform
+    lpc_palette_cell_x: one "Group · Column" per grid column, in x order."""
+    return _shader_hint_enum(model_palette.grid_column_labels(params))
+
+
+def _preset_hint_enum(scene):
+    """`hint_enum` arguments for the singlecolor shader's instance uniform
+    lpc_preset_position: the preset names in list order, so entry i is list
+    position i. An unnamed preset shows as "Preset <n>"; with no presets at
+    all there is one placeholder entry (position 0, like preset_count)."""
+    names = [p.name or f"Preset {i + 1}" for i, p in enumerate(scene.lpc_presets)]
+    return _shader_hint_enum(names or ["(no presets)"])
+
+
 def _preset_legend(scene):
     """A `lpc_preset_position` value <-> preset name comment block -- list
     position is a plain int with no name attached once it's on a mesh, so
@@ -285,7 +316,8 @@ def build_context(scene):
         "preset_count": str(preset_count),
         # *_max are the highest VALID index (count - 1) -- only useful as
         # `hint_range` upper bounds on the singlecolor shader's instance
-        # uniforms (lpc_preset_position, lpc_palette_cell_x/y), clamping
+        # uniforms (now only lpc_palette_cell_y; cell_x and the preset
+        # position are hint_enum drop-downs, see *_hint_enum), clamping
         # hand-typed Inspector values to what the exported LUT/palette
         # textures actually contain. Godot's hint_range only accepts
         # int/float uniforms, not vectors -- hence cell_x/y as two
@@ -316,6 +348,13 @@ def build_context(scene):
         "palette_groups_gdscript": _palette_groups_gdscript(params),
         "palette_column_names_gdscript": _palette_column_names_gdscript(params),
         "palette_cell_x_enum": _palette_cell_x_enum(params),
+        # The same column names for the singlecolor shader's instance uniform
+        # lpc_palette_cell_x, an Inspector drop-down via `hint_enum`
+        # (Godot 4.4+).
+        "palette_cell_x_hint_enum": _palette_cell_x_hint_enum(params),
+        # The preset names for the singlecolor shader's instance uniform
+        # lpc_preset_position, likewise a `hint_enum` drop-down.
+        "preset_hint_enum": _preset_hint_enum(scene),
         # The presets as the body of a shader vec4 array initializer, one per
         # line, in list order: (roughness, metallic, clearcoat, emission),
         # emission raw (before emission_factor). For sets that ship no preset

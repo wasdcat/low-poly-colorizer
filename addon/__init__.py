@@ -87,6 +87,11 @@ def _init_palettes():
         if picker_interface.ensure_palette_initialized(scene):
             preview_material.update_palette_image(scene)
             geometry_nodes.update_lpc_geo_node_group(scene)
+    # The shared lpc_set_material group of a file saved with an older
+    # add-on version is rebuilt right away (no-op when current / absent).
+    if bpy.data.scenes:
+        geometry_nodes.migrate_lpc_geo_node_group(
+            getattr(bpy.context, "scene", None) or bpy.data.scenes[0])
 
 
 def _seed_pathless_empty_scenes():

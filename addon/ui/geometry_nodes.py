@@ -11,7 +11,10 @@ with LPC palette cell references (lpc_uv0), preset list positions (lpc_uv1),
 and binding them to the shared preview material (lpc_multicolor).
 
 Uses Blender 4.1+ `GeometryNodeMenuSwitch` and `NodeSocketMenu` to expose
-the active preset list as a dynamic dropdown menu in Geometry Nodes.
+the palette columns ("Group · Column") and the active preset list as dynamic
+dropdown menus in Geometry Nodes -- the palette column works like
+`palette_cell_x` of the exported Godot `lpc_palette_color_resource.gd`: listed
+by name, resolved to the grid column number.
 """
 
 try:
@@ -35,11 +38,12 @@ NODE_GROUP_LABEL = "LPC Set Material"
 _MANAGED_KEY = constants.PREFIX + "geo_nodes_managed"
 
 # Bumped when the internal node graph changes.
-_NODES_VERSION = 1
+_NODES_VERSION = 2
 _VERSION_KEY = constants.PREFIX + "geo_nodes_version"
 
 # Named internal node identifiers for fast updates without rebuilding.
 _MENU_SWITCH_NODE = constants.PREFIX + "menu_switch"
+_COLUMN_SWITCH_NODE = constants.PREFIX + "column_switch"
 _DIV_COLS_NODE = constants.PREFIX + "div_cols"
 _DIV_ROWS_NODE = constants.PREFIX + "div_rows"
 _SET_MATERIAL_NODE = constants.PREFIX + "set_material"
@@ -60,6 +64,45 @@ def _find_managed_node_group():
     return None
 
 
+def column_menu_labels(params):
+    """One unique, non-empty menu item name per grid column, index = x --
+    the same "Group · Column" labels as the Godot `palette_cell_x` drop-down.
+    Menu item names must be unique, so a repeated label gets " (2)", " (3)"."""
+    labels = []
+    seen = set()
+    for x, label in enumerate(model_palette.grid_column_labels(params)):
+        label = " ".join(str(label).split()) or f"Column {x + 1}"
+        unique, n = label, 2
+        while unique in seen:
+            unique = f"{label} ({n})"
+            n += 1
+        seen.add(unique)
+        labels.append(unique)
+    return labels
+
+
+def _sync_column_switch(column_switch, params):
+    """Make the column Menu Switch list one item per grid column, item x
+    outputting x. Items are renamed in place, added or removed only at the
+    end, so a modifier's chosen item keeps its position -- like the Godot
+    resource, the column number is what sticks when the palette changes."""
+    labels = column_menu_labels(params) or ["Column 1"]
+    items = column_switch.enum_definition.enum_items
+    while len(items) > len(labels):
+        items.remove(items[len(items) - 1])
+    # Two passes: Blender keeps item names unique, so renaming straight to a
+    # name a later item still carries would get a ".001" suffix.
+    for i, item in enumerate(items):
+        item.name = f"lpc_tmp_{i}"
+    for i, item in enumerate(items):
+        item.name = labels[i]
+    for label in labels[len(items):]:
+        items.new(label)
+    # inputs[0] is the "Menu" socket, inputs[x + 1] the value of item x.
+    for x in range(len(labels)):
+        column_switch.inputs[x + 1].default_value = x
+
+
 def _sync_menu_switch(menu_switch, scene):
     """Sync the Menu Switch node's enum items and default input values with
     the current scene presets."""
@@ -78,9 +121,55 @@ def _sync_menu_switch(menu_switch, scene):
             menu_switch.inputs[item_name].default_value = i
 
 
+# The group's interface, in order: (name, in/out, socket type). Palette Cell X
+# is a drop-down of "Group · Column" names, resolved to the column number by
+# the column Menu Switch.
+_INTERFACE = (
+    ("Geometry", "INPUT", "NodeSocketGeometry"),
+    ("Selection", "INPUT", "NodeSocketBool"),
+    ("Palette Cell X", "INPUT", "NodeSocketMenu"),
+    ("Palette Cell Y", "INPUT", "NodeSocketInt"),
+    ("Preset", "INPUT", "NodeSocketMenu"),
+    ("Geometry", "OUTPUT", "NodeSocketGeometry"),
+)
+
+
+def _ensure_interface(ng):
+    """Bring the group interface to _INTERFACE without clearing it: sockets
+    whose name, direction and type still match are kept, so their
+    identifiers -- and with them the values set in existing modifiers --
+    survive a rebuild. Sockets that changed type (Palette Cell X: Int ->
+    Menu in node version 2) or are unknown are replaced / removed.
+    Returns ({(name, in_out): socket}, {keys of newly created sockets})."""
+    wanted = {(name, in_out): stype for name, in_out, stype in _INTERFACE}
+    kept = {}
+    for item in list(ng.interface.items_tree):
+        if item.item_type != "SOCKET":
+            ng.interface.remove(item)
+            continue
+        key = (item.name, item.in_out)
+        if wanted.get(key) == item.socket_type and key not in kept:
+            kept[key] = item
+        else:
+            ng.interface.remove(item)
+    created = set()
+    for name, in_out, stype in _INTERFACE:
+        if (name, in_out) not in kept:
+            kept[(name, in_out)] = ng.interface.new_socket(
+                name, in_out=in_out, socket_type=stype)
+            created.add((name, in_out))
+    # Restore the order: each socket in turn to the end of the tree, so they
+    # end up in _INTERFACE order. The modifier feeds the object's geometry
+    # into the FIRST geometry input, so "Geometry" must lead the inputs.
+    for name, in_out, _stype in _INTERFACE:
+        ng.interface.move(kept[(name, in_out)], len(ng.interface.items_tree))
+    return kept, created
+
+
 def _build_nodes(ng, scene):
     """Construct the geometry node tree:
-    Inputs: Geometry, Selection, Palette Cell X, Palette Cell Y, Preset (Menu)
+    Inputs: Geometry, Selection, Palette Cell X (Menu), Palette Cell Y,
+            Preset (Menu)
     Math: UV0 (Texel-Center + glTF V-Flip), UV1 (Preset List Position)
     Store Named Attributes: lpc_uv0 (Corner, Float2), lpc_uv1 (Corner, Float2)
     Set Material: lpc_multicolor
@@ -92,31 +181,19 @@ def _build_nodes(ng, scene):
     cols, rows = model_palette.cell_count(params)
 
     ng.nodes.clear()
-    ng.interface.clear()
 
     # -- Interface sockets --
-    ng.interface.new_socket("Geometry", in_out="INPUT", socket_type="NodeSocketGeometry")
-
-    sock_sel = ng.interface.new_socket("Selection", in_out="INPUT", socket_type="NodeSocketBool")
-    sock_sel.default_value = True
-
-    sock_x = ng.interface.new_socket("Palette Cell X", in_out="INPUT", socket_type="NodeSocketInt")
-    sock_x.default_value = 0
-    sock_x.min_value = 0
-    sock_x.max_value = max(cols - 1, 0)
-
-    sock_y = ng.interface.new_socket("Palette Cell Y", in_out="INPUT", socket_type="NodeSocketInt")
-    sock_y.default_value = 0
+    sockets, created = _ensure_interface(ng)
+    if ("Selection", "INPUT") in created:
+        sockets[("Selection", "INPUT")].default_value = True
+    sock_y = sockets[("Palette Cell Y", "INPUT")]
     sock_y.min_value = 0
     sock_y.max_value = max(rows - 1, 0)
-
-    ng.interface.new_socket("Preset", in_out="INPUT", socket_type="NodeSocketMenu")
-    ng.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
 
     links = ng.links
 
     in_node = ng.nodes.new("NodeGroupInput")
-    in_node.location = (-700, 0)
+    in_node.location = (-900, 0)
 
     out_node = ng.nodes.new("NodeGroupOutput")
     out_node.location = (1100, 0)
@@ -130,12 +207,21 @@ def _build_nodes(ng, scene):
     _sync_menu_switch(menu_switch, scene)
     links.new(in_node.outputs["Preset"], menu_switch.inputs["Menu"])
 
+    # -- Palette Column Resolution via Menu Switch --
+    column_switch = ng.nodes.new("GeometryNodeMenuSwitch")
+    column_switch.name = _COLUMN_SWITCH_NODE
+    column_switch.label = "Palette Column Menu Switch"
+    column_switch.data_type = "INT"
+    column_switch.location = (-650, 400)
+    _sync_column_switch(column_switch, params)
+    links.new(in_node.outputs["Palette Cell X"], column_switch.inputs["Menu"])
+
     # -- UV0 Math: U = (X + 0.5) / cols, V = 1.0 - (Y + 0.5) / rows --
     add_half_x = ng.nodes.new("ShaderNodeMath")
     add_half_x.operation = "ADD"
     add_half_x.inputs[1].default_value = 0.5
     add_half_x.location = (-400, 250)
-    links.new(in_node.outputs["Palette Cell X"], add_half_x.inputs[0])
+    links.new(column_switch.outputs["Output"], add_half_x.inputs[0])
 
     div_cols = ng.nodes.new("ShaderNodeMath")
     div_cols.operation = "DIVIDE"
@@ -224,21 +310,43 @@ def ensure_lpc_geo_node_group(scene):
     return ng
 
 
+def migrate_lpc_geo_node_group(scene):
+    """Rebuild the shared group if it was made by an older add-on version;
+    no-op otherwise (and when the file has none). Run on file load / add-on
+    enable, so an outdated group never lingers until the next palette or
+    preset change."""
+    if bpy is None:
+        return
+    ng = _find_managed_node_group()
+    if ng is not None and ng.get(_VERSION_KEY) != _NODES_VERSION:
+        update_lpc_geo_node_group(scene)
+
+
 def update_lpc_geo_node_group(scene):
-    """Sync the Menu Switch options, divisor nodes, socket ranges and material
+    """Sync the Menu Switch options (palette columns, presets), divisor
+    nodes, socket ranges and material
     in the Geometry Node group with the current scene."""
     if bpy is None:
         return
     ng = _find_managed_node_group()
-    if ng is None or ng.get(_VERSION_KEY) != _NODES_VERSION:
+    if ng is None:
         return
+    if ng.get(_VERSION_KEY) != _NODES_VERSION:
+        # Group from an older add-on version (e.g. a saved file): rebuild
+        # it in place -- modifiers keep pointing at it, and the sockets that
+        # did not change keep their values (see _ensure_interface).
+        _build_nodes(ng, scene)
 
     from ..picker import interface as picker_interface
 
     params = picker_interface.params_from_scene(scene)
     cols, rows = model_palette.cell_count(params)
 
-    # 1. Update Menu Switch
+    # 1. Update Menu Switches
+    column_switch = ng.nodes.get(_COLUMN_SWITCH_NODE)
+    if column_switch is not None:
+        _sync_column_switch(column_switch, params)
+
     menu_switch = ng.nodes.get(_MENU_SWITCH_NODE)
     if menu_switch is not None:
         _sync_menu_switch(menu_switch, scene)
@@ -254,9 +362,7 @@ def update_lpc_geo_node_group(scene):
 
     # 3. Update Interface Socket bounds
     for item in ng.interface.items_tree:
-        if item.name == "Palette Cell X":
-            item.max_value = max(cols - 1, 0)
-        elif item.name == "Palette Cell Y":
+        if item.name == "Palette Cell Y":
             item.max_value = max(rows - 1, 0)
 
     # 4. Update Set Material node

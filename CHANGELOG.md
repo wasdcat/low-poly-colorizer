@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1] - 2026-11-17
+
+### Changed
+- **Geometry Nodes**: in the `LPC Set Material` node group, *Palette Cell X* is now a drop-down of the column names ("Nature · Moss"), like `palette_cell_x` in the Godot `lpc_palette_color_resource.gd`; internally it still resolves to the column number. After palette changes the items are renamed in place, so a modifier keeps its column number. Duplicate column names get " (2)", " (3)" in the menu.
+- **Godot export**: the instance shader parameters of `lpc_singlecolor.gdshader` are Inspector drop-downs (`hint_enum`): `lpc_palette_cell_x` lists the column names (the same list as `palette_cell_x` of the resource scripts), `lpc_preset_position` the preset names. What is stored are still the numbers (column, list position).
+
+### Upgrade notes
+- The exported Godot files now need **Godot 4.4 or newer** (`hint_enum` in `lpc_singlecolor.gdshader`). Instance parameter values already set on `MeshInstance3D`s are kept — they are the same numbers.
+- An existing `lpc_set_material` node group is rebuilt automatically when the file is opened (or the add-on is enabled). Modifiers keep their *Selection* and *Palette Cell Y* values; because *Palette Cell X* changes from a number to a menu, it falls back to the first column — set it again from the drop-down.
+
 ## [2.0.0] - 2026-11-17
 
 LPC 2.0 replaces the fixed color wheel with a palette of **groups and columns**. Files from 1.x are converted on load with the same grid, so painted faces keep their cells — but colors may change (see *Upgrade notes*).

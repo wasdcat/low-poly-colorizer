@@ -25,17 +25,27 @@ uniform float emission_factor : hint_range(0.0, 16.0) = 1.0;
 uniform float clearcoat_roughness_value : hint_range(0.0, 1.0) = 0.0;
 
 // Raw cell coordinates (e.g. x=3, y=5), not a pre-normalized UV -- actual
-// int uniforms (clean Inspector spinners, no meaningless decimal point)
-// clamped to the actual palette grid via Godot's hint_range. Two scalars,
-// not one ivec2/vec2: hint_range only accepts int/float uniforms, not
-// vector types, and cols/rows can legitimately differ.
-instance uniform int lpc_palette_cell_x : hint_range(0, {{palette_cols_max}}) = 0;
+// int uniforms, two scalars rather than one ivec2: the Inspector hints only
+// apply to int/float uniforms, and cols/rows can legitimately differ.
+// x is a drop-down of the palette columns by name ("Group · Column",
+// hint_enum, Godot 4.4+); what is stored is the column number. y is the row,
+// clamped to the grid via hint_range.
+//
+// Reordering, adding or removing columns in the add-on shifts the numbers --
+// a stored x then names a different column after the next export.
+instance uniform int lpc_palette_cell_x : hint_enum(
+    {{palette_cell_x_hint_enum}}
+) = 0;
 instance uniform int lpc_palette_cell_y : hint_range(0, {{palette_rows_max}}) = 0;
 
 // lpc_preset_position legend (list order at the time of the last export --
 // re-export after adding/renaming/deleting a preset to refresh this):
 {{preset_legend}}
-instance uniform int lpc_preset_position : hint_range(0, {{preset_count_max}}) = 0;
+// The Inspector shows it as a drop-down of these names (hint_enum); what is
+// stored is the list position.
+instance uniform int lpc_preset_position : hint_enum(
+    {{preset_hint_enum}}
+) = 0;
 // -1.0 = use the preset's own emission value; any other value overrides it.
 instance uniform float lpc_emission_override : hint_range(-1.0, 1.0) = -1.0;
 

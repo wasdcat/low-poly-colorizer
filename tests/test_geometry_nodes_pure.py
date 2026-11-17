@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "addon"))
 
 from ui import geometry_nodes
+from model import palette as model_palette
 
 
 class TestGeometryNodesPure(unittest.TestCase):
@@ -23,6 +24,25 @@ class TestGeometryNodesPure(unittest.TestCase):
         self.assertTrue(geometry_nodes.is_lpc_managed(dummy))
         dummy_unmanaged = {}
         self.assertFalse(geometry_nodes.is_lpc_managed(dummy_unmanaged))
+
+    def test_column_menu_labels_match_godot_column_names(self):
+        pal = model_palette.palette_from_json({"groups": [
+            {"name": "Nature", "columns": [
+                {"id": "a", "name": "Moss"},
+                {"id": "b", "name": "Grey", "span": 2}]}]})
+        self.assertEqual(geometry_nodes.column_menu_labels(pal),
+                         model_palette.grid_column_labels(pal))
+        self.assertEqual(geometry_nodes.column_menu_labels(pal),
+                         ["Nature · Moss", "Nature · Grey 1/2", "Nature · Grey 2/2"])
+
+    def test_column_menu_labels_are_unique(self):
+        pal = model_palette.palette_from_json({"groups": [
+            {"name": "G", "columns": [
+                {"id": "a", "name": "Red"},
+                {"id": "b", "name": "Red"},
+                {"id": "c", "name": "Red"}]}]})
+        self.assertEqual(geometry_nodes.column_menu_labels(pal),
+                         ["G · Red", "G · Red (2)", "G · Red (3)"])
 
 
 if __name__ == "__main__":

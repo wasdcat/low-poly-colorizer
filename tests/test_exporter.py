@@ -189,10 +189,25 @@ class TestPaletteStructure(unittest.TestCase):
         groups = exporter._palette_groups_gdscript(pal)
         self.assertIn('"name": ' + json.dumps('Say "hi", ok'), groups)
 
+    def test_shader_hint_enum_aligns_with_x(self):
+        entries = exporter._palette_cell_x_hint_enum(self._params()).split(",\n    ")
+        self.assertEqual(len(entries), 6)
+        self.assertEqual(entries[0], '"Greyscale · Grey"')
+        self.assertEqual(entries[3], '"Color Wheel · Hue 3"')
+
+    def test_shader_hint_enum_has_no_escapes(self):
+        # Godot's shader tokenizer knows no escape sequences: no `"` or
+        # backslash inside a string; "," / ":" would split the enum hint.
+        backslash = chr(92)
+        pal = model_palette.palette_from_json({"groups": [{"name": 'Say "hi", ok', "columns": [
+            {"id": "a", "name": "A:B" + backslash + "C"}]}]})
+        self.assertEqual(exporter._palette_cell_x_hint_enum(pal),
+                         '"Say \'hi\'  ok · A B/C"')
+
     def test_in_context(self):
         context = exporter.build_context(_scene())
         for key in ("palette_groups_gdscript", "palette_column_names_gdscript",
-                    "palette_cell_x_enum"):
+                    "palette_cell_x_enum", "palette_cell_x_hint_enum"):
             self.assertIn(key, context)
         for key in ("palette_has_greyscale", "palette_saturation",
                     "palette_brightness", "palette_color_mode"):
@@ -297,6 +312,21 @@ class TestGodotSet(unittest.TestCase):
         common = self._render()["lpc_common.gdshaderinc"]
         self.assertIn("uniform sampler2D lpc_palette_tex", common)
         self.assertIn("uniform sampler2D lpc_preset_lut_tex", common)
+
+    def test_singlecolor_cell_x_is_a_hint_enum_dropdown(self):
+        shader = self._render()["lpc_singlecolor.gdshader"]
+        self.assertIn('instance uniform int lpc_palette_cell_x : hint_enum(\n'
+                      '    "Greyscale · Grey",\n', shader)
+        self.assertNotIn("{{", shader)
+
+    def test_singlecolor_preset_is_a_hint_enum_dropdown(self):
+        shader = self._render()["lpc_singlecolor.gdshader"]
+        self.assertIn('instance uniform int lpc_preset_position : hint_enum(\n'
+                      '    "Solid",\n    "Lamp",\n    "Chrome"\n) = 0;', shader)
+
+    def test_preset_hint_enum_without_presets(self):
+        self.assertEqual(exporter._preset_hint_enum(_scene(presets=[])),
+                         '"(no presets)"')
 
     def test_every_uid_bearing_file_gets_its_sidecar(self):
         texts = self._render()

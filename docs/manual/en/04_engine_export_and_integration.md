@@ -1,6 +1,6 @@
 # Engine Export and Integration
 
-Low Poly Colorizer utilizes a generic, template-based export system (`.tpl`) that is flexibly extensible to other engines. The included default target is **Godot 4** (*Godot Materials*).
+Low Poly Colorizer utilizes a generic, template-based export system (`.tpl`) that is flexibly extensible to other engines. The included default target is **Godot 4** (*Godot Materials*); the exported files need **Godot 4.4 or newer**.
 
 ## One-Click Export to Godot
 
@@ -17,7 +17,7 @@ LPC exports **no mesh geometry** (models are imported as `.blend` or glTF carryi
 
 1. **Export into the Godot project folder**: Choose a folder inside your Godot project. The exported `.import` files set the import settings both data textures need automatically (lossless, no VRAM compression or mipmaps, *Fix Alpha Border* off). Do not change these settings – every export restores them.
 2. **Painted meshes**: Assign `lpc_multicolor.tres` as the material override of the imported mesh. It reads color and preset per face from UV/UV2.
-3. **Other meshes** (not painted in LPC): Use `lpc_singlecolor.tres`. Palette cell, preset, and emission are set per `MeshInstance3D` as instance shader parameters, so many objects can share this one material and still look different.
+3. **Other meshes** (not painted in LPC): Use `lpc_singlecolor.tres`. Palette cell, preset, and emission are set per `MeshInstance3D` as instance shader parameters, so many objects can share this one material and still look different. The palette column (`lpc_palette_cell_x`) is a drop-down of the column names there as well (e.g. *Nature · Moss*), the preset (`lpc_preset_position`) one of the preset names; what is stored are the numbers.
 4. **Color only**: Where no LPC shader runs (decal, `Label3D`, UI, light), type your exports as `LpcPaletteColorResource` and read the color with `get_color()`. Such a field accepts any `LpcSinglecolorResource` look as well. Unlike a fixed `Color`, the color follows palette changes on the next export.
    In the Inspector, the palette column (`palette_cell_x`) is a drop-down of the column names (e.g. *Nature · Moss*); the resource saves the number. For your own code the script also carries `PALETTE_GROUPS` and `PALETTE_COLUMN_NAMES`.
    > [!WARNING]
@@ -29,7 +29,10 @@ LPC exports **no mesh geometry** (models are imported as `.blend` or glTF carryi
 For procedural meshes, generate the `lpc_set_material` node group via the preset menu (**▾**) by selecting **Create Geometry Node Group**:
 
 1. LPC constructs the node group and attaches it as a Geometry Nodes modifier to the active object.
-2. In the Node Editor, drive palette coordinates $(X, Y)$ and material preset procedurally through input sockets. The shared `lpc_multicolor` material handles shading automatically.
+2. In the modifier or the Node Editor, set the palette cell and the material preset through the input sockets. The shared `lpc_multicolor` material handles shading automatically.
+   - **Palette Cell X** is a drop-down of the palette columns by name ("Group · Column", e.g. *Nature · Moss*), the same list as `palette_cell_x` of the exported Godot resource. Internally it resolves to the column number; when you change the palette, a modifier keeps its column number.
+   - **Palette Cell Y** is the row number, from 0 (lightest) to the darkest row.
+   - **Preset** is a drop-down of the scene's presets.
 
 ![The lpc_set_material node group in the Geometry Node Editor](../common/images/geo_nodes_lpc_set_material.png)
 
