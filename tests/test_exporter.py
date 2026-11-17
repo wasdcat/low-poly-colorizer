@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import json
 import os
 import re
 import sys
@@ -78,14 +79,32 @@ def _preset(name, roughness=0.5, metallic=0.0, clearcoat=0.0, emission=0.0):
     )
 
 
-def _scene(presets=None, **palette_overrides):
-    palette = dict(
-        cols=5, rows=4, add_greyscale=True, saturation=0.9, brightness=0.8,
-        tint=0.7, shade=0.6, color_mode="OKLCH", hue_shift=0.5, warmth=-0.3,
-    )
-    palette.update(palette_overrides)
+def _palette_props(pal):
+    """An initialized LPC_PaletteParams stand-in holding `pal`."""
+    groups = [SimpleNamespace(
+        name=g["name"], chroma=g["chroma"],
+        use_l_top=g.get("l_top") is not None, l_top=g.get("l_top") or 0.0,
+        use_l_bottom=g.get("l_bottom") is not None, l_bottom=g.get("l_bottom") or 0.0,
+        columns=[SimpleNamespace(
+            column_id=c["id"], name=c["name"], hue=c["hue"],
+            use_chroma=c.get("chroma") is not None, chroma=c.get("chroma") or 0.0,
+            span=c.get("span", 1)) for c in g["columns"]],
+    ) for g in pal["groups"]]
     return SimpleNamespace(
-        lpc_palette_params=SimpleNamespace(**palette),
+        groups=groups, rows=pal["rows"], l_top=pal["l_top"], l_bottom=pal["l_bottom"],
+        tint=pal["tint"], shade=pal["shade"], hue_shift=pal["hue_shift"],
+        warmth=pal["warmth"], initialized=True,
+    )
+
+
+def _scene(presets=None, **palette_overrides):
+    pal = model_palette.palette_from_params(model_palette.params_from_legacy(dict(
+        cols=5, rows=4, add_greyscale=True, saturation=0.9, brightness=0.8,
+        tint=0.7, shade=0.6, hue_shift=0.5, warmth=-0.3,
+    )))
+    pal.update(palette_overrides)
+    return SimpleNamespace(
+        lpc_palette_params=_palette_props(pal),
         lpc_globals=SimpleNamespace(emission_factor=2.0, clearcoat_roughness=0.1),
         lpc_presets=presets if presets is not None else [
             _preset("Solid", 0.8),
@@ -126,10 +145,58 @@ class TestPaletteArray(unittest.TestCase):
     def test_palette_follows_artwork_settings(self):
         # The bug this array fixes: the old GDScript recomputed HSV only.
         plain = exporter._palette_colors_gdscript(
-            picker_interface.params_from_scene(_scene(color_mode="HSV", hue_shift=0.0, warmth=0.0)))
+            picker_interface.params_from_scene(_scene(hue_shift=0.0, warmth=0.0)))
         styled = exporter._palette_colors_gdscript(
             picker_interface.params_from_scene(_scene()))
         self.assertNotEqual(plain, styled)
+
+
+ENUM_SEP = ",\n\t\t"  # separator of _palette_cell_x_enum's entries
+
+
+class TestPaletteStructure(unittest.TestCase):
+    """Groups, column names and the Inspector enum for palette_cell_x."""
+
+    def _params(self):
+        return picker_interface.params_from_scene(_scene())
+
+    def test_groups(self):
+        body = exporter._palette_groups_gdscript(self._params())
+        self.assertEqual(body.splitlines(), [
+            '\t{"name": "Greyscale", "first": 0, "count": 1},',
+            '\t{"name": "Color Wheel", "first": 1, "count": 5},',
+        ])
+
+    def test_column_names_and_enum_align_with_x(self):
+        params = self._params()
+        names = exporter._palette_column_names_gdscript(params).splitlines()
+        self.assertEqual(len(names), 6)
+        self.assertEqual(names[0], '\t"Greyscale · Grey",')
+        enum = exporter._palette_cell_x_enum(params).split(ENUM_SEP)
+        self.assertEqual(len(enum), 6)
+        self.assertEqual(enum[3], '"Color Wheel · Hue 3:3"')
+
+    def test_free_text_is_escaped(self):
+        backslash = chr(92)
+        pal = model_palette.palette_from_json({"groups": [{"name": 'Say "hi", ok', "columns": [
+            {"id": "a", "name": "A:B" + backslash + "C", "span": 2}]}]})
+        enum = exporter._palette_cell_x_enum(pal).split(ENUM_SEP)
+        # "," and ":" would split Godot's enum hint -> spaces; quotes and
+        # backslashes are escaped as in JSON (valid GDScript).
+        plain = 'Say "hi"  ok · A B' + backslash + 'C'
+        self.assertEqual(enum[0], json.dumps(plain + " 1/2:0", ensure_ascii=False))
+        self.assertEqual(enum[1], json.dumps(plain + " 2/2:1", ensure_ascii=False))
+        groups = exporter._palette_groups_gdscript(pal)
+        self.assertIn('"name": ' + json.dumps('Say "hi", ok'), groups)
+
+    def test_in_context(self):
+        context = exporter.build_context(_scene())
+        for key in ("palette_groups_gdscript", "palette_column_names_gdscript",
+                    "palette_cell_x_enum"):
+            self.assertIn(key, context)
+        for key in ("palette_has_greyscale", "palette_saturation",
+                    "palette_brightness", "palette_color_mode"):
+            self.assertNotIn(key, context)
 
 
 class TestStableUid(unittest.TestCase):

@@ -19,6 +19,9 @@ LPC exportiert **keine Meshes** (Modelle importieren Sie als `.blend` oder glTF 
 2. **Bemalte Meshes**: Weisen Sie dem importierten Mesh `lpc_multicolor.tres` als Material-Override zu. Es liest Farbe und Preset pro Fläche aus UV/UV2.
 3. **Andere Meshes** (nicht in LPC bemalt): Verwenden Sie `lpc_singlecolor.tres`. Palettenzelle, Preset und Emission werden pro `MeshInstance3D` als Instance-Shader-Parameter gesetzt – viele Objekte teilen sich so ein Material und sehen trotzdem unterschiedlich aus.
 4. **Nur die Farbe**: Wo kein LPC-Shader läuft (Decal, `Label3D`, UI, Licht), typisieren Sie Exporte als `LpcPaletteColorResource` und lesen die Farbe mit `get_color()`. Ein solches Feld akzeptiert auch jeden `LpcSinglecolorResource`-Look. Anders als ein fester `Color`-Wert folgt die Farbe Palettenänderungen beim nächsten Export.
+   Im Inspektor ist die Palettenspalte (`palette_cell_x`) ein Auswahlfeld mit den Spaltennamen (z. B. *Nature · Moss*); gespeichert wird die Nummer. Für eigenen Code enthält das Skript zusätzlich `PALETTE_GROUPS` und `PALETTE_COLUMN_NAMES`.
+   > [!WARNING]
+   > Hinzufügen, Entfernen oder Umsortieren von Palettenspalten verschiebt die Spaltennummern. LPC rechnet die bemalten Meshes um, gespeicherte `.tres`-Dateien behalten aber ihre Nummer und zeigen nach dem nächsten Export auf eine andere Spalte – prüfen Sie sie nach einem solchen Umbau (wie bei Preset-Positionen).
 5. **Arbeitsablauf**: Änderungen an bemalten Flächen reisen mit dem Modell – Godot übernimmt sie beim Reimport der `.blend` bzw. glTF. Ein neuer LPC-Export ist nur nötig, wenn der Export-Button rot ist.
 
 ## Prozedurale Workflows mit Geometry Nodes

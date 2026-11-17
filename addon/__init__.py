@@ -22,6 +22,8 @@ from bpy.app.handlers import persistent
 from .export import exporter as export_exporter
 from .model import presets as model_presets
 from .ops import assign_sample as ops_assign_sample
+from .ops import file_io as ops_file_io
+from .ops import palette as ops_palette
 from .ops import presets as ops_presets
 from .picker import interface as picker_interface
 from .picker import modal as picker_modal
@@ -31,8 +33,11 @@ from .ui import panel as ui_panel
 classes = (
     model_presets.LPC_Preset,
     model_presets.LPC_Globals,
+    picker_interface.LPC_PaletteColumn,
+    picker_interface.LPC_PaletteGroup,
     picker_interface.LPC_PaletteParams,
     picker_interface.LPC_PickerResult,
+    ops_palette.LPC_RemapRow,
     picker_modal.LPC_OT_modal_palette_picker,
     ops_assign_sample.LPC_OT_assign,
     ops_assign_sample.LPC_OT_sample,
@@ -43,8 +48,21 @@ classes = (
     ops_presets.LPC_OT_preset_delete,
     ops_presets.LPC_OT_preset_duplicate,
     ops_presets.LPC_OT_preset_load_defaults,
-    ops_presets.LPC_OT_preset_export_json,
-    ops_presets.LPC_OT_preset_import_json,
+    ops_file_io.LPC_OT_file_export,
+    ops_file_io.LPC_OT_file_import,
+    ops_palette.LPC_OT_palette_remap,
+    ops_palette.LPC_OT_palette_group_add,
+    ops_palette.LPC_OT_palette_group_remove,
+    ops_palette.LPC_OT_palette_group_move,
+    ops_palette.LPC_OT_palette_column_add,
+    ops_palette.LPC_OT_palette_column_remove,
+    ops_palette.LPC_OT_palette_column_move,
+    ops_palette.LPC_OT_palette_load_template,
+    ops_palette.LPC_OT_palette_dismiss_notice,
+    ops_palette.LPC_UL_remap_rows,
+    ops_palette.LPC_UL_palette_groups,
+    ops_palette.LPC_UL_palette_columns,
+    ops_palette.LPC_MT_palette_templates,
     export_exporter.LPC_OT_export,
     ui_geometry_nodes.LPC_OT_add_geo_node_group,
     ui_panel.LPC_OT_palette_settings,
@@ -54,6 +72,21 @@ classes = (
     ui_panel.LPC_PT_palette_panel,
     ui_panel.LPC_PT_footer,
 )
+
+
+def _init_palettes():
+    """Write the palette into every scene that has none yet: an LPC 1.x
+    file's values are converted (same grid, painted faces keep their
+    cells), anything else gets the default template. Idempotent.
+
+    NOTE: like the preset seeding, a deliberate exception to "no load
+    handlers" (Invariant 3): it INITIALISES primary user data once."""
+    from .ui import geometry_nodes, preview_material
+
+    for scene in bpy.data.scenes:
+        if picker_interface.ensure_palette_initialized(scene):
+            preview_material.update_palette_image(scene)
+            geometry_nodes.update_lpc_geo_node_group(scene)
 
 
 def _seed_pathless_empty_scenes():
@@ -72,8 +105,10 @@ def _seed_pathless_empty_scenes():
 
 @persistent
 def _seed_presets_on_load(*_args):
-    """File > New / open -> seed a fresh file (see _seed_pathless_empty_scenes)."""
+    """File > New / open -> seed a fresh file (see _seed_pathless_empty_scenes)
+    and write the palette where missing (see _init_palettes)."""
     _seed_pathless_empty_scenes()
+    _init_palettes()
 
 
 def _seed_on_enable():
@@ -81,6 +116,7 @@ def _seed_on_enable():
     is enabled / Blender starts (load_post does not fire for it). Returns
     None so the timer runs exactly once."""
     _seed_pathless_empty_scenes()
+    _init_palettes()
     return None
 
 
@@ -142,6 +178,12 @@ def register():
     bpy.types.WindowManager.lpc_picker_result = bpy.props.PointerProperty(
         type=picker_interface.LPC_PickerResult
     )
+    # Remap table of a palette commit (ops/palette.py), transient.
+    bpy.types.WindowManager.lpc_remap_rows = bpy.props.CollectionProperty(
+        type=ops_palette.LPC_RemapRow
+    )
+    bpy.types.WindowManager.lpc_remap_active = bpy.props.IntProperty(default=0)
+    bpy.types.WindowManager.lpc_remap_old_palette = bpy.props.StringProperty()
     if _seed_presets_on_load not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(_seed_presets_on_load)
     for handlers in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post):
@@ -162,8 +204,10 @@ def unregister():
             handlers.remove(_redraw_on_undo_redo)
     if _seed_presets_on_load in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(_seed_presets_on_load)
-    if hasattr(bpy.types.WindowManager, "lpc_picker_result"):
-        del bpy.types.WindowManager.lpc_picker_result
+    for prop in ("lpc_remap_old_palette", "lpc_remap_active", "lpc_remap_rows",
+                 "lpc_picker_result"):
+        if hasattr(bpy.types.WindowManager, prop):
+            delattr(bpy.types.WindowManager, prop)
     for prop in (
         "lpc_palette_params",
         "lpc_export_fingerprint",

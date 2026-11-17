@@ -1,0 +1,147 @@
+{
+  "version": 2,
+  "name": "Stylized 3D",
+  "palette": {
+    "rows": 5,
+    "l_top": 0.93,
+    "l_bottom": 0.25,
+    "tint": 0.8,
+    "shade": 0.9,
+    "hue_shift": 0.5,
+    "warmth": 0.2,
+    "groups": [
+      {
+        "name": "Neutral",
+        "chroma": 0.02,
+        "columns": [
+          {
+            "id": "grey",
+            "name": "Grey",
+            "hue": 0.0,
+            "chroma": 0.0,
+            "span": 2
+          },
+          {
+            "id": "cool",
+            "name": "Cool",
+            "hue": 250.0
+          },
+          {
+            "id": "warm",
+            "name": "Warm",
+            "hue": 70.0
+          }
+        ]
+      },
+      {
+        "name": "Nature",
+        "chroma": 0.05,
+        "columns": [
+          {
+            "id": "rust",
+            "name": "Rust",
+            "hue": 35.0,
+            "chroma": 0.06
+          },
+          {
+            "id": "brown",
+            "name": "Brown",
+            "hue": 55.0,
+            "chroma": 0.055
+          },
+          {
+            "id": "ochre",
+            "name": "Ochre",
+            "hue": 75.0,
+            "chroma": 0.06
+          },
+          {
+            "id": "sand",
+            "name": "Sand",
+            "hue": 85.0,
+            "chroma": 0.045
+          },
+          {
+            "id": "olive",
+            "name": "Olive",
+            "hue": 110.0,
+            "chroma": 0.055
+          },
+          {
+            "id": "moss",
+            "name": "Moss",
+            "hue": 135.0
+          },
+          {
+            "id": "fir",
+            "name": "Fir",
+            "hue": 165.0,
+            "chroma": 0.045
+          },
+          {
+            "id": "slate",
+            "name": "Slate",
+            "hue": 245.0,
+            "chroma": 0.035
+          }
+        ]
+      },
+      {
+        "name": "Accent",
+        "chroma": 0.17,
+        "columns": [
+          {
+            "id": "red",
+            "name": "Red",
+            "hue": 25.0
+          },
+          {
+            "id": "orange",
+            "name": "Orange",
+            "hue": 50.0
+          },
+          {
+            "id": "yellow",
+            "name": "Yellow",
+            "hue": 90.0
+          },
+          {
+            "id": "lime",
+            "name": "Lime",
+            "hue": 125.0
+          },
+          {
+            "id": "green",
+            "name": "Green",
+            "hue": 150.0
+          },
+          {
+            "id": "cyan",
+            "name": "Cyan",
+            "hue": 195.0
+          },
+          {
+            "id": "azure",
+            "name": "Azure",
+            "hue": 235.0
+          },
+          {
+            "id": "blue",
+            "name": "Blue",
+            "hue": 265.0
+          },
+          {
+            "id": "violet",
+            "name": "Violet",
+            "hue": 300.0
+          },
+          {
+            "id": "magenta",
+            "name": "Magenta",
+            "hue": 345.0
+          }
+        ]
+      }
+    ]
+  }
+}

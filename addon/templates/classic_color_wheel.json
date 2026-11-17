@@ -1,0 +1,114 @@
+{
+  "version": 2,
+  "name": "Classic Color Wheel",
+  "palette": {
+    "rows": 9,
+    "l_top": 0.94,
+    "l_bottom": 0.22,
+    "tint": 0.8,
+    "shade": 0.8,
+    "hue_shift": 0.0,
+    "warmth": 0.0,
+    "groups": [
+      {
+        "name": "Greyscale",
+        "chroma": 0.0,
+        "l_top": 1.0,
+        "l_bottom": 0.0,
+        "columns": [
+          {
+            "id": "grey",
+            "name": "Grey",
+            "hue": 0.0
+          }
+        ]
+      },
+      {
+        "name": "Color Wheel",
+        "chroma": 0.16,
+        "columns": [
+          {
+            "id": "hue-0",
+            "name": "Hue 1",
+            "hue": 0.0
+          },
+          {
+            "id": "hue-1/16",
+            "name": "Hue 2",
+            "hue": 22.5
+          },
+          {
+            "id": "hue-1/8",
+            "name": "Hue 3",
+            "hue": 45.0
+          },
+          {
+            "id": "hue-3/16",
+            "name": "Hue 4",
+            "hue": 67.5
+          },
+          {
+            "id": "hue-1/4",
+            "name": "Hue 5",
+            "hue": 90.0
+          },
+          {
+            "id": "hue-5/16",
+            "name": "Hue 6",
+            "hue": 112.5
+          },
+          {
+            "id": "hue-3/8",
+            "name": "Hue 7",
+            "hue": 135.0
+          },
+          {
+            "id": "hue-7/16",
+            "name": "Hue 8",
+            "hue": 157.5
+          },
+          {
+            "id": "hue-1/2",
+            "name": "Hue 9",
+            "hue": 180.0
+          },
+          {
+            "id": "hue-9/16",
+            "name": "Hue 10",
+            "hue": 202.5
+          },
+          {
+            "id": "hue-5/8",
+            "name": "Hue 11",
+            "hue": 225.0
+          },
+          {
+            "id": "hue-11/16",
+            "name": "Hue 12",
+            "hue": 247.5
+          },
+          {
+            "id": "hue-3/4",
+            "name": "Hue 13",
+            "hue": 270.0
+          },
+          {
+            "id": "hue-13/16",
+            "name": "Hue 14",
+            "hue": 292.5
+          },
+          {
+            "id": "hue-7/8",
+            "name": "Hue 15",
+            "hue": 315.0
+          },
+          {
+            "id": "hue-15/16",
+            "name": "Hue 16",
+            "hue": 337.5
+          }
+        ]
+      }
+    ]
+  }
+}

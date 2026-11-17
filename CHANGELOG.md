@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-17
+
+LPC 2.0 replaces the fixed color wheel with a palette of **groups and columns**. Files from 1.x are converted on load with the same grid, so painted faces keep their cells — but colors may change (see *Upgrade notes*).
+
+### Added
+- **Palette of groups and columns**: groups (heading in the picker, chroma default, optional own lightness range) of columns (hue, optional own chroma, span 1 or 2 for long ramps such as a 10-step grey scale), all computed in OKLCH. Global values: rows, lightness range (*Lightest* / *Darkest*), tint, shade, hue shift, warmth.
+- **Settings dialog** rebuilt around the palette: group list and column list with color previews, add / remove / reorder (a column moved past the end of its group continues in the neighboring group).
+- **Templates**: *Stylized 3D* (22 × 5, groups Neutral / Nature / Accent — the default for new files) and *Classic Color Wheel* (1.x default layout). Templates are JSON files in `addon/templates/`.
+- **Painted faces follow palette changes**: on *OK*, faces are remapped by stable column ids — adding, moving and widening columns and reordering groups are lossless. Deleting a used column, changing the row count or narrowing a column opens **Remap Painted Faces**: one row per affected color with its face count and the nearest new color (OKLab) as suggestion, correctable via X/Y; *Cancel* restores the previous palette. The picked brush cell moves along.
+- **Picker**: gaps and headings between groups, the hovered cell's name below the grid (e.g. *Nature · Moss 3*), fine lines between cells.
+- **LPC file format `version: 2`**: one JSON file with `palette` and/or `presets`. *Import / Export Palette / Presets* (preset menu) with checkboxes for both parts. An imported palette replaces the current one and runs through the same remap. Preset files of 1.x (`version: 1`) are still read.
+- **Godot export**: `PALETTE_GROUPS` (name, first column, count) and `PALETTE_COLUMN_NAMES` in `lpc_palette_color_resource.gd`; `palette_cell_x` is an Inspector drop-down of the column names ("Nature · Moss"), still saved as a number.
+
+### Changed
+- One color model: OKLCH. Lightness steps are even in perceived lightness; tint and shade now reduce chroma toward the lightest / darkest rows instead of mixing in white / black.
+
+### Removed
+- *Columns*, *Add Greyscale Column*, *Saturation*, *Brightness* and the *Color Mode* switch (HSV / OKLCH). Their roles are taken by groups, columns, chroma and the lightness range.
+- Exported constants `PALETTE_HAS_GREYSCALE`, `PALETTE_SATURATION`, `PALETTE_BRIGHTNESS`, `PALETTE_COLOR_MODE`.
+- The preset-only *Import / Export JSON* entries (replaced by *Import / Export Palette / Presets*).
+
+### Upgrade notes
+- **Opening a 1.x file** converts its palette once: the greyscale column becomes the group *Greyscale* (white to black), the color wheel the group *Color Wheel* with the same hues, *Saturation* its chroma, *Brightness* its lightness range. Same grid size, every painted face keeps its cell. A note in the N-Panel and the Settings dialog says so until dismissed.
+- **Colors may change**: palettes in the former default mode *HSV* look visibly different; *OKLCH* palettes stay practically the same in their hue columns. If you need the old colors exactly, stay on 1.2 for that project.
+- **Godot**: re-export after upgrading. Saved `palette_cell_x` values keep their numbers; after adding, removing or reordering columns they name a different column — painted meshes are remapped by the add-on, `.tres` files are not.
+
 ## [1.2.0] - 2026-11-17
 
 ### Added

@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+"""Palette functions with flat LPC 1.x parameters (converted on the fly)."""
+
 import unittest
 import sys
 from pathlib import Path
@@ -10,6 +12,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "addon"))
 
 from model import palette
+
+
+def _luminance(c):
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
 
 
 class TestPalette(unittest.TestCase):
@@ -34,132 +40,87 @@ class TestPalette(unittest.TestCase):
         }
 
     def test_cell_count(self):
+        self.assertEqual(palette.cell_count(self.params_default), (17, 9))
+        self.assertEqual(palette.cell_count(self.params_no_grey), (8, 5))
+
+    def test_greyscale_column_is_neutral_and_descending(self):
         cols, rows = palette.cell_count(self.params_default)
-        self.assertEqual(cols, 17)
-        self.assertEqual(rows, 9)
-
-        cols, rows = palette.cell_count(self.params_no_grey)
-        self.assertEqual(cols, 8)
-        self.assertEqual(rows, 5)
-
-    def test_color_at_greyscale_column(self):
-        # Column 0 is greyscale when add_greyscale is True
-        # Top (y=0) should be white (1.0, 1.0, 1.0, 1.0)
-        c_top = palette.color_at(0, 0, self.params_default)
-        self.assertAlmostEqual(c_top[0], 1.0)
-        self.assertAlmostEqual(c_top[1], 1.0)
-        self.assertAlmostEqual(c_top[2], 1.0)
-        self.assertAlmostEqual(c_top[3], 1.0)
-
-        # Bottom (y=rows-1) should be black (0.0, 0.0, 0.0, 1.0)
-        c_bot = palette.color_at(0, 8, self.params_default)
-        self.assertAlmostEqual(c_bot[0], 0.0)
-        self.assertAlmostEqual(c_bot[1], 0.0)
-        self.assertAlmostEqual(c_bot[2], 0.0)
-        self.assertAlmostEqual(c_bot[3], 1.0)
-
-        # Middle (y=4) should be mid-grey (0.5, 0.5, 0.5, 1.0)
-        c_mid = palette.color_at(0, 4, self.params_default)
-        self.assertAlmostEqual(c_mid[0], 0.5)
-        self.assertAlmostEqual(c_mid[1], 0.5)
-        self.assertAlmostEqual(c_mid[2], 0.5)
+        lum = []
+        for y in range(rows):
+            r, g, b, a = palette.color_at(0, y, self.params_default)
+            self.assertAlmostEqual(r, g, places=4)
+            self.assertAlmostEqual(g, b, places=4)
+            self.assertEqual(a, 1.0)
+            lum.append(_luminance((r, g, b)))
+        self.assertEqual(lum, sorted(lum, reverse=True))
+        # White to black, as in 1.x (the Greyscale group's own L range).
+        for v in palette.color_at(0, 0, self.params_default)[:3]:
+            self.assertAlmostEqual(v, 1.0, places=4)
+        for v in palette.color_at(0, rows - 1, self.params_default)[:3]:
+            self.assertAlmostEqual(v, 0.0, places=4)
+        # Independent of brightness.
+        dark = dict(self.params_default, brightness=0.5)
+        self.assertEqual(palette.color_at(0, 0, dark), palette.color_at(0, 0, self.params_default))
 
     def test_color_at_bounds_and_validity(self):
-        cols, rows = palette.cell_count(self.params_default)
+        params = dict(self.params_default, hue_shift=0.5, warmth=0.2)
+        cols, rows = palette.cell_count(params)
         for y in range(rows):
             for x in range(cols):
-                r, g, b, a = palette.color_at(x, y, self.params_default)
+                r, g, b, a = palette.color_at(x, y, params)
                 self.assertTrue(0.0 <= r <= 1.0)
                 self.assertTrue(0.0 <= g <= 1.0)
                 self.assertTrue(0.0 <= b <= 1.0)
                 self.assertEqual(a, 1.0)
 
-        # Out of range should raise ValueError
         with self.assertRaises(ValueError):
-            palette.color_at(-1, 0, self.params_default)
+            palette.color_at(-1, 0, params)
         with self.assertRaises(ValueError):
-            palette.color_at(cols, 0, self.params_default)
+            palette.color_at(cols, 0, params)
         with self.assertRaises(ValueError):
-            palette.color_at(0, -1, self.params_default)
+            palette.color_at(0, -1, params)
         with self.assertRaises(ValueError):
-            palette.color_at(0, rows, self.params_default)
+            palette.color_at(0, rows, params)
 
     def test_build_pixels(self):
         pixels, cols, rows = palette.build_pixels(self.params_default)
-        self.assertEqual(cols, 17)
-        self.assertEqual(rows, 9)
+        self.assertEqual((cols, rows), (17, 9))
         self.assertEqual(len(pixels), cols * rows * 4)
-
-        # Verify pixel at (x=0, y=0) matches color_at(0, 0)
-        c_00 = palette.color_at(0, 0, self.params_default)
-        self.assertAlmostEqual(pixels[0], c_00[0])
-        self.assertAlmostEqual(pixels[1], c_00[1])
-        self.assertAlmostEqual(pixels[2], c_00[2])
-        self.assertAlmostEqual(pixels[3], c_00[3])
+        for x, y in ((0, 0), (5, 3), (16, 8)):
+            i = (y * cols + x) * 4
+            self.assertEqual(tuple(pixels[i:i + 4]),
+                             palette.color_at(x, y, self.params_default))
 
     def test_nearest_cell(self):
-        # White should match (0, 0) in default palette
-        best = palette.nearest_cell((1.0, 1.0, 1.0), self.params_default)
-        self.assertEqual(best, (0, 0))
+        for cell in ((0, 0), (0, 8), (5, 3), (16, 8)):
+            color = palette.color_at(*cell, self.params_default)
+            self.assertEqual(palette.nearest_cell(color, self.params_default), cell)
+        self.assertEqual(palette.nearest_cell((1.0, 1.0, 1.0), self.params_default), (0, 0))
+        self.assertEqual(palette.nearest_cell((0.0, 0.0, 0.0), self.params_default), (0, 8))
 
-        # Black should match (0, 8) in default palette
-        best = palette.nearest_cell((0.0, 0.0, 0.0), self.params_default)
-        self.assertEqual(best, (0, 8))
+    def test_warmth_biases_temperature(self):
+        neutral = palette.color_at(0, 4, self.params_default)
+        warm = palette.color_at(0, 4, dict(self.params_default, warmth=0.5))
+        cool = palette.color_at(0, 4, dict(self.params_default, warmth=-0.5))
+        self.assertGreater(warm[0], neutral[0])  # warmer -> redder
+        self.assertLess(warm[2], neutral[2])     # warmer -> less blue
+        self.assertLess(cool[0], neutral[0])
+        self.assertGreater(cool[2], neutral[2])
 
-    def test_oklch_mode_validity_and_bounds(self):
-        params_oklch = dict(self.params_default)
-        params_oklch["color_mode"] = "OKLCH"
-        params_oklch["hue_shift"] = 0.5
-        params_oklch["warmth"] = 0.2
+    def test_saturation_and_brightness(self):
+        grey = palette.color_at(3, 4, dict(self.params_default, saturation=0.0))
+        self.assertAlmostEqual(grey[0], grey[1], places=4)
+        self.assertAlmostEqual(grey[1], grey[2], places=4)
+        bright = palette.color_at(3, 4, self.params_default)
+        dark = palette.color_at(3, 4, dict(self.params_default, brightness=0.5))
+        self.assertLess(_luminance(dark), _luminance(bright))
 
-        cols, rows = palette.cell_count(params_oklch)
-        for y in range(rows):
-            for x in range(cols):
-                r, g, b, a = palette.color_at(x, y, params_oklch)
-                self.assertTrue(0.0 <= r <= 1.0, f"r={r} out of bounds at ({x}, {y})")
-                self.assertTrue(0.0 <= g <= 1.0, f"g={g} out of bounds at ({x}, {y})")
-                self.assertTrue(0.0 <= b <= 1.0, f"b={b} out of bounds at ({x}, {y})")
-                self.assertEqual(a, 1.0)
-
-        # Greyscale column monotonic descent
-        for y in range(rows - 1):
-            c_curr = palette.color_at(0, y, params_oklch)
-            c_next = palette.color_at(0, y + 1, params_oklch)
-            lum_curr = 0.2126 * c_curr[0] + 0.7152 * c_curr[1] + 0.0722 * c_curr[2]
-            lum_next = 0.2126 * c_next[0] + 0.7152 * c_next[1] + 0.0722 * c_next[2]
-            self.assertGreater(lum_curr, lum_next, f"Luminance did not decrease at row {y}")
-
-    def test_hsv_hue_shift_and_warmth_effects(self):
-        # Warmth > 0 should bias colors warmer (more red / less blue)
-        params_neutral = dict(self.params_default)
-        params_warm = dict(self.params_default, warmth=0.5)
-        params_cool = dict(self.params_default, warmth=-0.5)
-
-        c_neutral = palette.color_at(0, 4, params_neutral)
-        c_warm = palette.color_at(0, 4, params_warm)
-        c_cool = palette.color_at(0, 4, params_cool)
-
-        self.assertGreater(c_warm[0], c_neutral[0])  # warmer -> redder
-        self.assertLess(c_warm[2], c_neutral[2])     # warmer -> less blue
-        self.assertLess(c_cool[0], c_neutral[0])     # cooler -> less red
-        self.assertGreater(c_cool[2], c_neutral[2])  # cooler -> more blue
-
-    def test_backward_compatibility_defaults(self):
-        # Calling with explicit default artwork params must match calling without them
-        explicit_defaults = dict(
-            self.params_default,
-            color_mode="HSV",
-            hue_shift=0.0,
-            warmth=0.0,
-        )
-        cols, rows = palette.cell_count(self.params_default)
-        for y in range(rows):
-            for x in range(cols):
-                c_implicit = palette.color_at(x, y, self.params_default)
-                c_explicit = palette.color_at(x, y, explicit_defaults)
-                self.assertEqual(c_implicit, c_explicit)
+    def test_color_mode_is_ignored(self):
+        # LPC 2.0 has no HSV mode; old scenes keep their grid, not their colors.
+        hsv = dict(self.params_default, color_mode="HSV")
+        oklch = dict(self.params_default, color_mode="OKLCH")
+        self.assertEqual(palette.build_pixels(hsv), palette.build_pixels(oklch))
 
 
 if __name__ == "__main__":
     unittest.main()
-

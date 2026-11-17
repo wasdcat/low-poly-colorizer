@@ -9,14 +9,18 @@
 Launches Blender in GUI mode with event simulation:
 1. Expands the 3D viewport sidebar and activates the LPC tab.
 2. Captures and crops the N-Panel (n_panel.png & n_panel_annotated.png with badges 1..6).
-3. Triggers the GPU Modal Palette Picker overlay (palette_picker_annotated.png with badges A..D).
-4. Extracts the inline palette picker icon (icon_picker.png).
-5. Opens the LPC Settings dialog (settings_annotated.png with badges 1..4).
+3. Hides the scene objects and triggers the GPU Modal Palette Picker overlay
+   (palette_picker_annotated.png with badges A..D;
+   cropped from the screen change, badges placed from the geometry Blender reports).
+4. Extracts the inline palette picker icon (icon_picker.png, found as the bright glyph in the button).
+5. Opens the LPC Settings dialog (settings_annotated_1.png / _2.png with badges 1..3 / 4..6; the dialog and its
+   layout boxes are found in the screenshot, not at fixed coordinates).
 6. Constructs and captures the LPC Set Material Geometry Node tree (geo_nodes_lpc_set_material.png).
 
 Requirements:
 - Blender 4.2+ or 5.x installed and discoverable.
-- Calibrated for a 4K display resolution (3840x2160) with Blender maximized due to simulated UI coordinates.
+- The N-Panel crop and the LPC tab click use fixed coordinates, calibrated for a maximized
+  Blender window of 5120x1351 px (the picker and Settings crops adapt to any size).
 
 Usage:
     python scripts/capture_screenshots.py [<output_dir> ...]
@@ -27,15 +31,20 @@ Examples:
 """
 
 import argparse
+import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# Window position (x, y up) of the simulated mouse when the Settings dialog
+# opens -- the dialog appears around it, the crop searches from it.
+SETTINGS_MOUSE = (2560, 675)
 
 BLENDER_CANDIDATES = [
     shutil.which("blender"),
@@ -45,6 +54,134 @@ BLENDER_CANDIDATES = [
     r"C:\Program Files\Blender Foundation\Blender 5.0\blender.exe",
     r"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe",
 ]
+
+
+# Runs inside Blender (embedded into the automation script): where the picker
+# overlay draws -- the same PickerGeometry, swatch size and centering as
+# LPC_OT_modal_palette_picker.invoke -- in window pixels, y up.
+PICKER_GEOMETRY_DUMP = """
+import json
+from addon.model import palette as _pal
+from addon.picker import geometry as _geo, interface as _iface, modal as _modal
+
+def dump_picker_geometry(region, path):
+    ctx = bpy.context
+    params = _iface.params_from_scene(ctx.scene)
+    cols, rows = _pal.cell_count(params)
+    groups = [(n, s, c) for n, s, c in _pal.group_ranges(params) if c > 0]
+    geo = _geo.PickerGeometry(
+        origin_x=0.0, origin_y=0.0, swatch_size=24.0,
+        ui_scale=ctx.preferences.system.ui_scale,
+        group_starts=tuple(s for _n, s, _c in groups if s > 0), gap=_modal.GROUP_GAP)
+    geo.origin_x = (region.width - geo.grid_width_cells(cols) * geo.cell_size) / 2.0
+    geo.origin_y = (region.height - rows * geo.cell_size) / 2.0
+    def to_win(x, y):
+        return [region.x + x, region.y + y]
+    def rect(x, y):
+        x0, y0, x1, y1 = geo.cell_rect(x, y)
+        return to_win(x0, y0) + to_win(x1, y1)
+    result = ctx.window_manager.lpc_picker_result
+    data = {
+        "cols": cols, "rows": rows, "cell": geo.cell_size,
+        "grid": to_win(*geo.cell_to_screen(0, 0)) + to_win(*geo.cell_to_screen(cols, rows)),
+        "groups": [{"name": n, "first": s, "count": c,
+                    "x0": to_win(*geo.cell_to_screen(s, 0))[0],
+                    "x1": to_win(*geo.cell_to_screen(s + c - 1, 0))[0] + geo.cell_size}
+                   for n, s, c in groups],
+        "active": rect(result.x, result.y),
+    }
+    with open(path, "w") as f:
+        json.dump(data, f)
+"""
+
+
+def diff_bbox(before: Image.Image, after: Image.Image, box, thresh: int = 8):
+    """Bounding box (in full-image pixels) of what changed inside `box`."""
+    a = before.convert("RGB").crop(box)
+    b = after.convert("RGB").crop(box)
+    d = ImageChops.difference(a, b).convert("L").point(lambda v: 255 if v > thresh else 0)
+    bb = d.getbbox()
+    if bb is None:
+        return None
+    return (box[0] + bb[0], box[1] + bb[1], box[0] + bb[2], box[1] + bb[3])
+
+
+def popup_rect(before: Image.Image, after: Image.Image, cx: int, cy: int,
+               thresh: int = 4, frac: float = 0.5, band: int = 250, gap: int = 80):
+    """Rectangle of a popup that appeared around (cx, cy) between two window
+    shots: the contiguous block of mostly-changed columns / rows, bridging
+    short runs where the popup happens to match the background (box outlines
+    are close to the viewport grey)."""
+    d = ImageChops.difference(before.convert("RGB"), after.convert("RGB")).convert("L")
+    d = d.point(lambda v: 255 if v > thresh else 0)
+    W, H = d.size
+    px = d.load()
+
+    def mostly(values):
+        values = list(values)
+        return sum(1 for v in values if v) >= frac * len(values)
+
+    def extend(start, step, ok, limit):
+        last, i, miss = start, start, 0
+        while 0 <= i + step < limit and miss < gap:
+            i += step
+            if ok(i):
+                last, miss = i, 0
+            else:
+                miss += 1
+        return last
+
+    y0, y1 = max(0, cy - band), min(H, cy + band)
+    l = extend(cx, -1, lambda x: mostly(px[x, y] for y in range(y0, y1, 2)), W)
+    r = extend(cx, 1, lambda x: mostly(px[x, y] for y in range(y0, y1, 2)), W)
+    t = extend(cy, -1, lambda y: mostly(px[x, y] for x in range(l, r, 2)), H)
+    b = extend(cy, 1, lambda y: mostly(px[x, y] for x in range(l, r, 2)), H)
+
+    # Trim the popup's soft drop shadow: edges that changed only slightly.
+    # Not the top edge -- a dialog reaching the window top lies over the dark
+    # top bar, where its title row barely differs from what was there.
+    strong = ImageChops.difference(before.convert("RGB"), after.convert("RGB")).convert("L")
+    strong = strong.point(lambda v: 255 if v > 20 else 0).load()
+    while l < r and not mostly(strong[l, y] for y in range(t, b, 2)):
+        l += 1
+    while r > l and not mostly(strong[r, y] for y in range(t, b, 2)):
+        r -= 1
+    while b > t and not mostly(strong[x, b] for x in range(l, r, 2)):
+        b -= 1
+    return l, t, r + 1, b + 1
+
+
+def layout_boxes(img: Image.Image, expected: int, min_len: int = 30):
+    """(top, bottom) of the layout boxes in a cropped dialog: runs that differ
+    from the dialog background along a column just inside the boxes' left
+    edge. Tries columns from the left until one yields `expected` runs."""
+    px = img.load()
+    # Dialog background: the most frequent color of the left margin (past the
+    # 2 px outline, before the boxes start).
+    margin = [px[x, y] for x in range(2, 9) for y in range(0, img.height, 3)]
+    bg = max(set(margin), key=margin.count)
+
+    def runs_at(x):
+        runs, start = [], None
+        for y in range(img.height):
+            c = px[x, y]
+            inside = any(abs(c[i] - bg[i]) > 4 for i in range(3))
+            if inside and start is None:
+                start = y
+            elif not inside and start is not None:
+                if y - start >= min_len:
+                    runs.append((start, y - 1))
+                start = None
+        return runs
+
+    best = []
+    for x in range(6, min(60, img.width)):
+        runs = runs_at(x)
+        if len(runs) == expected:
+            return runs
+        if len(runs) > len(best) and len(runs) < expected:
+            best = runs
+    return best
 
 
 def find_blender() -> Path:
@@ -61,7 +198,7 @@ def get_font(size: int = 15):
         return ImageFont.load_default()
 
 
-def capture(output_dirs: list[Path]):
+def capture(output_dirs: list[Path], raw_dir: Path | None = None):
     blender_bin = find_blender()
     
     # Resolve and create target directories
@@ -77,10 +214,16 @@ def capture(output_dirs: list[Path]):
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
+        if raw_dir is not None:  # keep the raw window shots for inspection
+            tmp_path = raw_dir.resolve()
+            tmp_path.mkdir(parents=True, exist_ok=True)
         base_blend = tmp_path / "base.blend"
         shot_panel_raw = tmp_path / "shot_panel_raw.png"
+        shot_palette_before = tmp_path / "shot_palette_before.png"
         shot_palette_raw = tmp_path / "shot_palette_raw.png"
+        shot_settings_before = tmp_path / "shot_settings_before.png"
         shot_settings_raw = tmp_path / "shot_settings_raw.png"
+        picker_geo_json = tmp_path / "picker_geometry.json"
         shot_node_raw = tmp_path / "shot_node_raw.png"
         helper_script = tmp_path / "capture_automation.py"
 
@@ -101,8 +244,9 @@ import sys
 sys.path.insert(0, r"{ROOT}")
 import bpy
 from addon.ui import geometry_nodes
-
+{PICKER_GEOMETRY_DUMP}
 step = 0
+CLEAN_OVERLAY_KEYS = ("show_floor", "show_axis_x", "show_axis_y", "show_axis_z", "show_cursor")
 
 def on_timer():
     global step
@@ -133,6 +277,20 @@ def on_timer():
         elif step == 5:
             # Screenshot N-Panel
             bpy.ops.screen.screenshot(filepath=r"{shot_panel_raw}")
+            # Hide the scene objects, floor grid, axes and 3D cursor so the
+            # picker shot has a clean background (not the whole overlay: that
+            # would hide the add-on's own drawing too).
+            for obj in bpy.context.scene.objects:
+                obj.hide_set(True)
+            if area_3d:
+                ov = area_3d.spaces.active.overlay
+                for key in CLEAN_OVERLAY_KEYS:
+                    setattr(ov, key, False)
+            return 0.5
+
+        elif step == 6:
+            # Reference shot without the picker (the crop is the difference)
+            bpy.ops.screen.screenshot(filepath=r"{shot_palette_before}")
             # Open Modal Palette Picker
             if area_3d:
                 region = next(r for r in area_3d.regions if r.type == "WINDOW")
@@ -145,21 +303,30 @@ def on_timer():
                 }}
                 with bpy.context.temp_override(**override):
                     bpy.ops.lpc.modal_palette_picker("INVOKE_DEFAULT")
+                dump_picker_geometry(region, r"{picker_geo_json}")
             return 0.5
 
-        elif step == 6:
+        elif step == 7:
             # Screenshot Modal Palette Picker
             bpy.ops.screen.screenshot(filepath=r"{shot_palette_raw}")
             win.event_simulate("ESC", "PRESS")
             win.event_simulate("ESC", "RELEASE")
+            for obj in bpy.context.scene.objects:
+                obj.hide_set(False)
+            if area_3d:
+                ov = area_3d.spaces.active.overlay
+                for key in CLEAN_OVERLAY_KEYS:
+                    setattr(ov, key, True)
             return 0.3
 
-        elif step == 7:
+        elif step == 8:
             # Move mouse to center of 3D Viewport
-            win.event_simulate("MOUSEMOVE", "NOTHING", x=2560, y=675)
+            win.event_simulate("MOUSEMOVE", "NOTHING", x={SETTINGS_MOUSE[0]}, y={SETTINGS_MOUSE[1]})
             return 0.2
 
-        elif step == 8:
+        elif step == 9:
+            # Reference shot without the dialog (the crop is the difference)
+            bpy.ops.screen.screenshot(filepath=r"{shot_settings_before}")
             # Open Settings Dialog
             if area_3d:
                 region = next(r for r in area_3d.regions if r.type == "WINDOW")
@@ -174,14 +341,14 @@ def on_timer():
                     bpy.ops.lpc.palette_settings("INVOKE_DEFAULT")
             return 0.5
 
-        elif step == 9:
+        elif step == 10:
             # Screenshot Settings Dialog
             bpy.ops.screen.screenshot(filepath=r"{shot_settings_raw}")
             win.event_simulate("ESC", "PRESS")
             win.event_simulate("ESC", "RELEASE")
             return 0.3
 
-        elif step == 10:
+        elif step == 11:
             # Setup Geometry Node graph
             scene = bpy.context.scene
             bpy.ops.lpc.preset_load_defaults()
@@ -237,7 +404,7 @@ def on_timer():
                 n.select = True
             return 0.3
 
-        elif step == 11:
+        elif step == 12:
             # Frame selected nodes
             for a in win.screen.areas:
                 if a.type == "NODE_EDITOR":
@@ -247,7 +414,7 @@ def on_timer():
                                 bpy.ops.node.view_selected()
             return 0.3
 
-        elif step == 12:
+        elif step == 13:
             # Deselect nodes for clean outline
             user_nt = bpy.data.node_groups.get("LPC_Geometry_Nodes")
             if user_nt:
@@ -255,7 +422,7 @@ def on_timer():
                     n.select = False
             return 0.3
 
-        elif step == 13:
+        elif step == 14:
             # Screenshot Geometry Nodes
             bpy.ops.screen.screenshot(filepath=r"{shot_node_raw}")
             bpy.ops.wm.quit_blender()
@@ -308,7 +475,15 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             save_to_targets(panel_cropped, "n_panel.png", dpi=(144, 144))
 
             # Crop Palette Button Icon (icon_picker.png)
-            icon_crop = panel_cropped.crop((340, 54, 371, 78))
+            # The button sits at the right end of the color row; its glyph is
+            # the only bright content there. Crop the glyph's bounding box + 3 px.
+            button_area = (322, 46, min(pw, 376), 92)
+            area = panel_cropped.crop(button_area).convert("L")
+            glyph = area.point(lambda v: 255 if v > 150 else 0).getbbox()
+            pad = 3
+            icon_crop = panel_cropped.crop((
+                button_area[0] + glyph[0] - pad, button_area[1] + glyph[1] - pad,
+                button_area[0] + glyph[2] + pad, button_area[1] + glyph[3] + pad))
             save_to_targets(icon_crop, "icon_picker.png", dpi=(144, 144))
 
             # Generate n_panel_annotated.png with precision brackets (badges 1..6)
@@ -340,103 +515,111 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
 
             save_to_targets(panel_canvas, "n_panel_annotated.png", dpi=(144, 144))
 
+        def bracket_h(draw, x1, x2, y, label, up=True):
+            """Horizontal bracket from x1 to x2 at y, badge above (or below)."""
+            tick = 5 if up else -5
+            draw.line([(x1, y + tick), (x1, y)], fill=line_col, width=2)
+            draw.line([(x1, y), (x2, y)], fill=line_col, width=2)
+            draw.line([(x2, y + tick), (x2, y)], fill=line_col, width=2)
+            cx = int((x1 + x2) / 2)
+            cy = y - 18 if up else y + 18
+            draw.line([(cx, y), (cx, cy + (badge_r if up else -badge_r))], fill=line_col, width=2)
+            draw_badge(draw, cx, cy, label)
+
+        def bracket_v(draw, x, y1, y2, label):
+            """Vertical bracket from y1 to y2 at x, badge to the right."""
+            draw.line([(x - 5, y1), (x, y1)], fill=line_col, width=2)
+            draw.line([(x, y1), (x, y2)], fill=line_col, width=2)
+            draw.line([(x - 5, y2), (x, y2)], fill=line_col, width=2)
+            cy = int((y1 + y2) / 2)
+            cx = x + 22
+            draw.line([(x, cy), (cx - badge_r, cy)], fill=line_col, width=2)
+            draw_badge(draw, cx, cy, label)
+
         # 4. Crop Modal Palette Picker (palette_picker_annotated.png)
-        if shot_palette_raw.is_file():
+        #    Crop = what the overlay changed around the grid; badges sit on the
+        #    geometry Blender reported (picker_geometry.json).
+        if shot_palette_raw.is_file() and picker_geo_json.is_file():
             im_pal_raw = Image.open(shot_palette_raw)
-            pal_box = (1782, 459, 2426, 804)
+            H = im_pal_raw.height
+            geo = json.loads(picker_geo_json.read_text(encoding="utf-8"))
+            gx0, gy0, gx1, gy1 = geo["grid"]          # window px, y up
+            search = (int(gx0) - 120, int(H - gy1) - 160, int(gx1) + 120, int(H - gy0) + 120)
+            bbox = diff_bbox(Image.open(shot_palette_before), im_pal_raw, search)
+            m = 6
+            pal_box = (bbox[0] - m, bbox[1] - m, bbox[2] + m, bbox[3] + m)
             pal_cropped = im_pal_raw.crop(pal_box).convert("RGBA")
             cw_raw, ch_raw = pal_cropped.size
 
-            pad_left, pad_top, pad_right, pad_bot = 50, 45, 50, 25
-            cw = pad_left + cw_raw + pad_right
-            ch = pad_top + ch_raw + pad_bot
-
-            pal_canvas = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+            pad_left, pad_top, pad_right, pad_bot = 50, 45, 50, 45
+            pal_canvas = Image.new("RGBA", (pad_left + cw_raw + pad_right, pad_top + ch_raw + pad_bot), (0, 0, 0, 0))
             pal_canvas.paste(pal_cropped, (pad_left, pad_top))
             c_draw = ImageDraw.Draw(pal_canvas)
 
-            # A: Greyscale column
-            x_g1 = pad_left + 4
-            x_g2 = pad_left + 41
-            y_top_br = pad_top - 6
-            c_draw.line([(x_g1, y_top_br + 5), (x_g1, y_top_br)], fill=line_col, width=2)
-            c_draw.line([(x_g1, y_top_br), (x_g2, y_top_br)], fill=line_col, width=2)
-            c_draw.line([(x_g2, y_top_br + 5), (x_g2, y_top_br)], fill=line_col, width=2)
-            cx_a = int((x_g1 + x_g2) / 2)
-            cy_a = pad_top - 24
-            c_draw.line([(cx_a, y_top_br), (cx_a, cy_a + badge_r)], fill=line_col, width=2)
-            draw_badge(c_draw, cx_a, cy_a, "A")
+            def cx_(x):  # window x -> canvas x
+                return x - pal_box[0] + pad_left
 
-            # B: Hue spectrum
-            x_s1 = pad_left + 42
-            x_s2 = pad_left + cw_raw - 4
-            c_draw.line([(x_s1, y_top_br + 5), (x_s1, y_top_br)], fill=line_col, width=2)
-            c_draw.line([(x_s1, y_top_br), (x_s2, y_top_br)], fill=line_col, width=2)
-            c_draw.line([(x_s2, y_top_br + 5), (x_s2, y_top_br)], fill=line_col, width=2)
-            cx_b = int((x_s1 + x_s2) / 2)
-            cy_b = pad_top - 24
-            c_draw.line([(cx_b, y_top_br), (cx_b, cy_b + badge_r)], fill=line_col, width=2)
-            draw_badge(c_draw, cx_b, cy_b, "B")
+            def cy_(y):  # window y (up) -> canvas y (down)
+                return (H - y) - pal_box[1] + pad_top
 
-            # C: Brightness & saturation gradient
-            x_r = pad_left + cw_raw + 6
-            y_r1 = pad_top + 4
-            y_r2 = pad_top + ch_raw - 4
-            c_draw.line([(x_r - 5, y_r1), (x_r, y_r1)], fill=line_col, width=2)
-            c_draw.line([(x_r, y_r1), (x_r, y_r2)], fill=line_col, width=2)
-            c_draw.line([(x_r - 5, y_r2), (x_r, y_r2)], fill=line_col, width=2)
-            cy_c = int((y_r1 + y_r2) / 2)
-            cx_c = x_r + 22
-            c_draw.line([(x_r, cy_c), (cx_c - badge_r, cy_c)], fill=line_col, width=2)
-            draw_badge(c_draw, cx_c, cy_c, "C")
-
-            # D: Active cell & selection frame
-            target_x = pad_left + 4
-            target_y = pad_top + ch_raw - 22
+            grid_top, grid_bot = cy_(gy1), cy_(gy0)
+            # A: a group (the second one if there are several) -- above its heading
+            groups = geo["groups"]
+            g = groups[1] if len(groups) > 1 else groups[0]
+            bracket_h(c_draw, cx_(g["x0"]) + 2, cx_(g["x1"]) - 2, pad_top - 6, "A")
+            # B: one column (first of the last group) -- below the grid
+            g = groups[-1]
+            bracket_h(c_draw, cx_(g["x0"]) + 2, cx_(g["x0"] + geo["cell"]) - 3,
+                      int(grid_bot) + 8, "B", up=False)
+            # C: the rows -- right of the grid
+            bracket_v(c_draw, pad_left + cw_raw + 6, int(grid_top) + 4, int(grid_bot) - 4, "C")
+            # D: the active cell -- arrow from the left
+            ax0, ay0, ax1, ay1 = geo["active"]
+            target_x = cx_(ax0) - 2
+            target_y = int(cy_((ay0 + ay1) / 2))
             cx_d = pad_left - 26
-            cy_d = target_y
-            c_draw.line([(cx_d + badge_r, cy_d), (target_x, target_y)], fill=line_col, width=2)
+            c_draw.line([(cx_d + badge_r, target_y), (target_x, target_y)], fill=line_col, width=2)
             c_draw.polygon([(target_x, target_y), (target_x - 6, target_y - 4), (target_x - 6, target_y + 4)], fill=line_col)
-            draw_badge(c_draw, cx_d, cy_d, "D")
+            draw_badge(c_draw, cx_d, target_y, "D")
 
             save_to_targets(pal_canvas, "palette_picker_annotated.png", dpi=(144, 144))
 
-        # 5. Crop Settings Dialog (settings_annotated.png)
-        if shot_settings_raw.is_file():
+        # 5. Crop Settings Dialog (settings_annotated_1.png / _2.png)
+        #    Crop = the popup that appeared at the mouse position; badges 1..6
+        #    on the dialog's layout boxes (1 also covers the Palette row above
+        #    the first box).
+        if shot_settings_raw.is_file() and shot_settings_before.is_file():
             im_sett_raw = Image.open(shot_settings_raw)
-            sett_box = (2362, 16, 2841, 741)
+            H = im_sett_raw.height
+            sett_box = popup_rect(Image.open(shot_settings_before), im_sett_raw,
+                                  SETTINGS_MOUSE[0], H - SETTINGS_MOUSE[1])
             sett_cropped = im_sett_raw.crop(sett_box).convert("RGBA")
             sw, sh = sett_cropped.size
 
-            sett_mask = Image.new("L", (sw, sh), 0)
-            s_draw = ImageDraw.Draw(sett_mask)
-            s_draw.rounded_rectangle([(0, 0), (sw - 1, sh - 1)], radius=6, fill=255)
-            sett_cropped.putalpha(sett_mask)
+            boxes = layout_boxes(sett_cropped.convert("RGB"), expected=6)
+            if len(boxes) != 6:
+                print(f"WARNING: found {len(boxes)} layout boxes in the Settings dialog, expected 6")
 
+            # Two images, split between box 3 (Columns) and box 4 (Tint / Shade)
+            # so the tall dialog fits a manual page.
+            split = (boxes[2][1] + boxes[3][0]) // 2 if len(boxes) >= 4 else sh
+            parts = [(1, 0, split), (2, split, sh)] if split < sh else [(1, 0, sh)]
             extra_w = 56
-            sett_canvas = Image.new("RGBA", (sw + extra_w, sh), (0, 0, 0, 0))
-            sett_canvas.paste(sett_cropped, (0, 0))
-            st_draw = ImageDraw.Draw(sett_canvas)
-
-            sett_sections = [
-                (1, 69, 198),   # 1: Grid
-                (2, 210, 295),  # 2: Base Color
-                (3, 307, 392),  # 3: Tint / Shade
-                (4, 404, 533),  # 4: Artwork
-                (5, 545, 662),  # 5: Globals
-            ]
-
-            bx = sw + 6
-            cx = sw + 32
-            for num, y1, y2 in sett_sections:
-                cy = int((y1 + y2) / 2)
-                st_draw.line([(bx - 5, y1), (bx, y1)], fill=line_col, width=2)
-                st_draw.line([(bx, y1), (bx, y2)], fill=line_col, width=2)
-                st_draw.line([(bx - 5, y2), (bx, y2)], fill=line_col, width=2)
-                st_draw.line([(bx, cy), (cx - badge_r, cy)], fill=line_col, width=2)
-                draw_badge(st_draw, cx, cy, str(num))
-
-            save_to_targets(sett_canvas, "settings_annotated.png", dpi=(144, 144))
+            for part, top, bottom in parts:
+                piece = sett_cropped.crop((0, top, sw, bottom))
+                ph_ = bottom - top
+                mask = Image.new("L", (sw, ph_), 0)
+                ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (sw - 1, ph_ - 1)], radius=6, fill=255)
+                piece.putalpha(mask)
+                canvas = Image.new("RGBA", (sw + extra_w, ph_), (0, 0, 0, 0))
+                canvas.paste(piece, (0, 0))
+                draw = ImageDraw.Draw(canvas)
+                for i, (y1, y2) in enumerate(boxes):
+                    if i == 0:  # include the "Palette  [Templates]" row above
+                        y1 = max(0, y1 - int(0.4 * (y2 - y1)))
+                    if top <= y1 and y2 <= bottom:
+                        bracket_v(draw, sw + 6, y1 - top, y2 - top, str(i + 1))
+                save_to_targets(canvas, f"settings_annotated_{part}.png", dpi=(144, 144))
 
         # 6. Crop Geometry Node Graph (geo_nodes_lpc_set_material.png)
         if shot_node_raw.is_file():
@@ -462,8 +645,14 @@ def main():
         default=[default_dir],
         help=f"Target directories where captured and annotated images will be saved (default: {default_dir.relative_to(ROOT)}).",
     )
+    parser.add_argument(
+        "--raw-dir",
+        type=Path,
+        default=None,
+        help="Keep the raw window screenshots in this directory (default: temporary, deleted).",
+    )
     args = parser.parse_args()
-    capture(args.output_dirs)
+    capture(args.output_dirs, raw_dir=args.raw_dir)
 
 
 if __name__ == "__main__":

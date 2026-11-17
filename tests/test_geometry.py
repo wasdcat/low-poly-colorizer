@@ -59,6 +59,30 @@ class TestGeometry(unittest.TestCase):
         self.assertEqual((x0, y0, x1, y1), (10.0, 10.0, 20.0, 20.0))
 
 
+class TestGroupGaps(unittest.TestCase):
+    """Groups at grid columns 0, 2 and 5 (gap 0.5 cells, 10 px cells)."""
+
+    def setUp(self):
+        self.geo = PickerGeometry(origin_x=0.0, origin_y=0.0, swatch_size=10.0,
+                                  group_starts=(2, 5), gap=0.5)
+
+    def test_cell_positions(self):
+        self.assertEqual(self.geo.cell_to_screen(1, 0), (10.0, 0.0))
+        self.assertEqual(self.geo.cell_to_screen(2, 0), (25.0, 0.0))
+        self.assertEqual(self.geo.cell_to_screen(5, 0), (60.0, 0.0))
+        self.assertEqual(self.geo.cell_rect(1, 0), (10.0, 0.0, 20.0, 10.0))
+        self.assertEqual(self.geo.grid_width_cells(7), 8.0)
+
+    def test_hit_test_roundtrip_and_gaps(self):
+        for x in range(7):
+            x0, y0, x1, y1 = self.geo.cell_rect(x, 1)
+            for px in (x0, (x0 + x1) / 2, x1 - 0.01):
+                self.assertEqual(self.geo.hit_test(px, 15.0, 7, 2), (x, 1))
+        self.assertIsNone(self.geo.hit_test(22.0, 5.0, 7, 2))   # gap 1
+        self.assertIsNone(self.geo.hit_test(57.0, 5.0, 7, 2))   # gap 2
+        self.assertIsNone(self.geo.hit_test(80.0, 5.0, 7, 2))   # right of grid
+
+
 if __name__ == "__main__":
     unittest.main()
 

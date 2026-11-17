@@ -3,8 +3,8 @@ Low Poly Colorizer (LPC) paints low-poly meshes with colors from a generated pal
 ## Key Features
 
 - **Palette picker**: GPU overlay in the 3D Viewport with zoom and pan. Clicking a cell paints the selected faces (Edit Mode) or whole objects (Object Mode).
-- **Generated palette**: Configurable grid of hues × brightness steps, optional greyscale column, adjustable saturation, brightness, tint and shade, plus Artwork controls (perceptually uniform OKLCH color space, hue shift for warm/cool shading ramps, warmth bias).
-- **PBR presets**: Named presets for roughness, metallic, emission and clearcoat. Presets still in use cannot be deleted. Preset sets can be imported and exported as JSON.
+- **Generated palette**: Groups of columns (e.g. Neutral / Nature / Accent), each column a hue with its own lightness ramp, chroma per group or column, optional two-column ramps, computed in the perceptually uniform OKLCH space; tint, shade, hue shift and warmth for the whole palette. Bundled templates (Stylized 3D, Classic Color Wheel). Painted faces are remapped when the palette layout changes.
+- **PBR presets**: Named presets for roughness, metallic, emission and clearcoat. Presets still in use cannot be deleted. Palette and presets can be imported and exported as JSON.
 - **One shared material**: No material slot per color. Palette and presets live in two small textures, so changing the palette or a preset updates every painted face immediately without rewriting mesh data.
 - **Tools**: Assign, Sample (load color + preset of the selected faces), Select/Deselect faces with the same color and preset, Fix UV Maps after joins, booleans or imports.
 - **Geometry Nodes**: The `LPC Set Material` node group sets palette cell and preset procedurally.

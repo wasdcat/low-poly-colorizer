@@ -310,6 +310,109 @@ if bpy is not None:
         mesh.update()
         return True
 
+    # -- palette remap: read / rewrite the cell of every painted face ----
+    #
+    # A painted face (lpc_index != UNASSIGNED) carries the same lpc_uv0 on
+    # all its corners (assign writes them together), so its first corner
+    # names its cell. Linked (library) meshes are read-only and skipped.
+
+    def painted_cell_uvs():
+        """The stored lpc_uv0 of every painted face, across all local
+        meshes -- input for `model.remap.count_cells`."""
+        for mesh in bpy.data.meshes:
+            if mesh.library is not None:
+                continue
+            if mesh.is_editmode:
+                bm = bmesh.from_edit_mesh(mesh)
+                ilayer = bm.faces.layers.int.get(INDEX_ATTRIBUTE)
+                u0 = bm.loops.layers.uv.get(UV0_NAME)
+                if ilayer is None or u0 is None:
+                    continue
+                for face in bm.faces:
+                    if face[ilayer] != UNASSIGNED and len(face.loops):
+                        uv = face.loops[0][u0].uv
+                        yield (uv[0], uv[1])
+            else:
+                iattr = mesh.attributes.get(INDEX_ATTRIBUTE)
+                l0 = mesh.uv_layers.get(UV0_NAME)
+                if iattr is None or l0 is None:
+                    continue
+                npoly = len(mesh.polygons)
+                indices = [0] * npoly
+                iattr.data.foreach_get("value", indices)
+                starts = [0] * npoly
+                mesh.polygons.foreach_get("loop_start", starts)
+                b0 = [0.0] * (2 * len(mesh.loops))
+                l0.data.foreach_get("uv", b0)
+                for p in range(npoly):
+                    if indices[p] != UNASSIGNED:
+                        yield (b0[2 * starts[p]], b0[2 * starts[p] + 1])
+
+    def remap_painted_uv0(remap_fn):
+        """Rewrite lpc_uv0 on every painted face of all local meshes:
+        `remap_fn(uv)` returns the new uv, or None to leave the face alone.
+        Returns the number of rewritten faces."""
+        changed = 0
+        for mesh in bpy.data.meshes:
+            if mesh.library is None:
+                if mesh.is_editmode:
+                    changed += _remap_edit_uv0(mesh, remap_fn)
+                else:
+                    changed += _remap_object_uv0(mesh, remap_fn)
+        return changed
+
+    def _remap_edit_uv0(mesh, remap_fn):
+        bm = bmesh.from_edit_mesh(mesh)
+        ilayer = bm.faces.layers.int.get(INDEX_ATTRIBUTE)
+        u0 = bm.loops.layers.uv.get(UV0_NAME)
+        if ilayer is None or u0 is None:
+            return 0
+        changed = 0
+        for face in bm.faces:
+            if face[ilayer] == UNASSIGNED or not len(face.loops):
+                continue
+            uv = face.loops[0][u0].uv
+            new = remap_fn((uv[0], uv[1]))
+            if new is None:
+                continue
+            for loop in face.loops:
+                loop[u0].uv = new
+            changed += 1
+        if changed:
+            bmesh.update_edit_mesh(mesh)
+        return changed
+
+    def _remap_object_uv0(mesh, remap_fn):
+        iattr = mesh.attributes.get(INDEX_ATTRIBUTE)
+        l0 = mesh.uv_layers.get(UV0_NAME)
+        if iattr is None or l0 is None:
+            return 0
+        npoly = len(mesh.polygons)
+        indices = [0] * npoly
+        iattr.data.foreach_get("value", indices)
+        starts = [0] * npoly
+        totals = [0] * npoly
+        mesh.polygons.foreach_get("loop_start", starts)
+        mesh.polygons.foreach_get("loop_total", totals)
+        b0 = [0.0] * (2 * len(mesh.loops))
+        l0.data.foreach_get("uv", b0)
+        changed = 0
+        for p in range(npoly):
+            if indices[p] == UNASSIGNED or not totals[p]:
+                continue
+            first = starts[p]
+            new = remap_fn((b0[2 * first], b0[2 * first + 1]))
+            if new is None:
+                continue
+            for li in range(first, first + totals[p]):
+                b0[2 * li] = new[0]
+                b0[2 * li + 1] = new[1]
+            changed += 1
+        if changed:
+            l0.data.foreach_set("uv", b0)
+            mesh.update()
+        return changed
+
     # -- refcount source: which preset uid each face carries ------------
 
     def iter_face_indices_per_mesh():

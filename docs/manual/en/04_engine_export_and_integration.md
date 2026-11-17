@@ -19,6 +19,9 @@ LPC exports **no mesh geometry** (models are imported as `.blend` or glTF carryi
 2. **Painted meshes**: Assign `lpc_multicolor.tres` as the material override of the imported mesh. It reads color and preset per face from UV/UV2.
 3. **Other meshes** (not painted in LPC): Use `lpc_singlecolor.tres`. Palette cell, preset, and emission are set per `MeshInstance3D` as instance shader parameters, so many objects can share this one material and still look different.
 4. **Color only**: Where no LPC shader runs (decal, `Label3D`, UI, light), type your exports as `LpcPaletteColorResource` and read the color with `get_color()`. Such a field accepts any `LpcSinglecolorResource` look as well. Unlike a fixed `Color`, the color follows palette changes on the next export.
+   In the Inspector, the palette column (`palette_cell_x`) is a drop-down of the column names (e.g. *Nature · Moss*); the resource saves the number. For your own code the script also carries `PALETTE_GROUPS` and `PALETTE_COLUMN_NAMES`.
+   > [!WARNING]
+   > Adding, removing or reordering palette columns shifts the column numbers. LPC remaps the painted meshes, but saved `.tres` files keep their numbers and name a different column after the next export—check them after such a change (the same applies to preset positions).
 5. **Workflow**: Changes to painted faces travel with the model – Godot picks them up when it re-imports the `.blend` or glTF. A new LPC export is only needed when the Export button is red.
 
 ## Procedural Workflows with Geometry Nodes

@@ -12,19 +12,19 @@ Klicken Sie im N-Panel auf den **Paletten-Button** (Farbwähler), öffnet sich d
 
 | Bereich | Beschreibung |
 |:---:|:---|
-| **Ⓐ** | **Graustufenspalte (Spalte 0)**: Reine Graustufen von Schwarz (oben) bis Weiß (unten) für monochrome Flächen oder neutrale Schattierungen. |
-| **Ⓑ** | **Farbton-Spektrum (Spalten 1–16)**: Der vollständige HSV-Farbkreis von Rot über Gelb, Grün, Cyan, Blau bis Magenta horizontal aufgefächert. |
-| **Ⓒ** | **Helligkeits- & Sättigungsverlauf (Zeilen 0–8)**: Vertikale Abstufung von tiefdunklen Schatten (oben) über satte Farben bis hin zu hellen Pastelltönen (unten). Zeile 0 ist die unterste Zeile. |
+| **Ⓐ** | **Gruppe**: Die Palette ist in Gruppen gegliedert (z. B. *Neutral*, *Nature*, *Accent*). Jede Gruppe trägt ihren Namen als Überschrift; zwischen den Gruppen liegt eine kleine Lücke. |
+| **Ⓑ** | **Spalten**: Jede Spalte ist ein Farbton mit eigener Helligkeitsrampe. Eine Spalte kann sich über zwei Rasterspalten erstrecken – etwa eine lange Grauskala mit doppelt so vielen Stufen. |
+| **Ⓒ** | **Zeilen**: Vertikale Abstufung von hell nach dunkel. Zeile 0, die hellste, ist die unterste Zeile. |
 | **Ⓓ** | **Aktive Zelle & Selektionsrahmen**: Zweifarbiger Markierungsrahmen um die momentan gewählte Palettenzelle $(X, Y)$ mit direkter Zuweisung per Klick. |
 
-Die Spalten- und Zeilennummern beziehen sich auf das Standard-Raster (Graustufenspalte + 16 Farbtöne × 9 Zeilen); beides lässt sich unter *Settings…* ändern.
+Unter dem Raster zeigt der Picker den Namen der Zelle unter dem Mauszeiger, z. B. *Nature · Moss 3*. Aufbau und Größe der Palette legen Sie unter *Settings…* fest (siehe unten).
 
 ### Steuerung im Picker-Overlay
 
 * **Auswählen & Zuweisen**: Klicken Sie mit der **linken Maustaste** auf die gewünschte Zelle. Die Zelle wird gespeichert, der aktuellen Auswahl zugewiesen und das Overlay schließt sich.
 * **Zoomen**: Drehen Sie das **Mausrad**, um stufenlos in die Palette hinein- oder herauszuzoomen (0.25× bis 4.0×).
 * **Verschieben (Pan)**: Halten Sie die **mittlere Maustaste (MMB)** gedrückt und ziehen Sie die Maus, um das Palettenfenster im Viewport zu bewegen.
-* **Abbrechen**: Mit **Rechtsklick**, **Escape** oder einem Linksklick außerhalb der Palette schließen Sie das Overlay, ohne die bisherige Farbauswahl zu verändern.
+* **Abbrechen**: Mit **Rechtsklick**, **Escape** oder einem Linksklick außerhalb der Palette (oder in eine Lücke zwischen Gruppen) schließen Sie das Overlay, ohne die bisherige Farbauswahl zu verändern.
 
 ---
 
@@ -43,7 +43,7 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 ### Preset-Zusatzfunktionen (Menü `▾`)
 
 * **Duplicate**: Erstellt eine 1:1-Kopie des aktiven Presets, um rasch Variationen zu erzeugen.
-* **Import / Export JSON**: Ermöglicht das Speichern und Laden von Preset-Sets als handliche Textdateien – ideal zur Wiederverwendung in anderen Projekten. Beim Import werden Presets mit bereits vorhandenem Namen aktualisiert, neue werden angehängt.
+* **Import / Export Palette / Presets**: Speichert Palette und Presets in einer JSON-Datei bzw. lädt sie wieder – ideal zur Wiederverwendung in anderen Projekten. Im Dateidialog wählen Sie per Haken, ob die Palette, die Presets oder beides geschrieben bzw. übernommen werden. Beim Import werden Presets mit bereits vorhandenem Namen aktualisiert, neue werden angehängt; eine Palette ersetzt die aktuelle vollständig (bemalte Flächen ziehen mit, siehe *Bemalte Flächen beim Umbau*). Preset-Dateien aus LPC 1.x lassen sich weiterhin importieren.
 * **Load Default Presets**: Ergänzt fehlende der vier mitgelieferten Werks-Presets (*Solid*, *Metallic*, *Clearcoat*, *Emission*) und setzt gleichnamige Presets auf die Werkswerte zurück.
 * **Create Geometry Node Group**: Siehe Kapitel *Engine-Export und Integration*.
 
@@ -51,43 +51,82 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 
 ## Globale Einstellungen (*Settings…*)
 
-Über den Button **Settings…** im N-Panel öffnen Sie das Konfigurationsfenster für projektspezifische Paletten- und Shader-Parameter. Änderungen werden live angezeigt; *Cancel* nimmt sie zurück.
+Über den Button **Settings…** im N-Panel öffnen Sie das Konfigurationsfenster für die Palette und die projektweiten Shader-Parameter. Änderungen werden live angezeigt; *OK* übernimmt sie, *Cancel* nimmt sie zurück.
 
-![Die globalen LPC-Einstellungen](../common/images/settings_annotated.png)
+![Die globalen LPC-Einstellungen: Palette](../common/images/settings_annotated_1.png)
 
 | Bereich | Beschreibung |
 |:---:|:---|
-| **①** | **Grid**: Anzahl der Farbton-Spalten (*Columns*, ohne Graustufenspalte) und Zeilen (*Rows*) sowie Umschalter für die monochrome Graustufenspalte (*Add Greyscale Column*). |
-| **②** | **Base Color**: Grundsättigung (*Saturation*) und Basishelligkeit (*Brightness*) aller Farbtöne im Farbkreis. |
-| **③** | **Tint / Shade**: Intensität der vertikalen Abstufungen (Aufhellung durch *Tint*, Abdunklung durch *Shade*). |
-| **④** | **Artwork**: Farbraum (**Color Mode**: *HSV* oder *OKLCH*), vertikaler Farbtemperatur-Drift (**Hue Shift**) und globale Farbtemperatur (**Warmth**). |
-| **⑤** | **Globals**: Projektweite Parameter wie der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Grund-Rauheit für Klarlack (*Clearcoat Roughness*). |
+| **①** | **Palette & Raster**: Menü **Templates** mit den mitgelieferten Vorlagen, Zeilenzahl (*Rows*) und Helligkeitsbereich (*Lightest* / *Darkest*). |
+| **②** | **Groups**: Liste der Gruppen (hinzufügen, entfernen, verschieben) und die Werte der gewählten Gruppe: *Chroma* sowie optional ein eigener Helligkeitsbereich. |
+| **③** | **Columns**: Liste der Spalten der gewählten Gruppe mit Farbvorschau und die Werte der gewählten Spalte: *Hue*, *Span* und optional ein eigenes *Chroma*. |
+
+![Die globalen LPC-Einstellungen: Abstufung, Artwork und Globals](../common/images/settings_annotated_2.png)
+
+| Bereich | Beschreibung |
+|:---:|:---|
+| **④** | **Tint / Shade**: Wie stark die Farbigkeit zu den hellsten (*Tint*) bzw. dunkelsten Zeilen (*Shade*) hin abnimmt. |
+| **⑤** | **Artwork**: Vertikaler Farbtemperatur-Drift (**Hue Shift**) und globale Farbtemperatur (**Warmth**). |
+| **⑥** | **Globals**: Projektweite Parameter wie der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Grund-Rauheit für Klarlack (*Clearcoat Roughness*). |
+
+---
+
+## Die Palette aufbauen: Gruppen und Spalten
+
+Die Palette besteht aus **Gruppen**, und jede Gruppe aus **Spalten**. Die Reihenfolge im Picker folgt genau dieser Gliederung: erst die Gruppen, darin ihre Spalten.
+
+* **Gruppen** ordnen die Palette nach Rolle. Bewährt hat sich eine Aufteilung in *Neutral* (Grau und fast neutrale Töne), *Nature* (gedämpfte Naturtöne für Gelände und Umgebung) und *Accent* (kräftige Farben für alles Spielrelevante). Das *Chroma* einer Gruppe – die Farbigkeit in OKLCH, 0 = Grau – gilt für alle ihre Spalten ohne eigenen Wert. Optional erhält eine Gruppe einen eigenen Helligkeitsbereich, etwa damit ihr Grau bis fast Schwarz reicht, ohne die übrigen Farben abzudunkeln.
+* **Spalten** sind die eigentlichen Farbtöne. *Hue* ist der Farbton in Grad (OKLCH), *Chroma* optional die eigene Farbigkeit. Mit *Span 2* erstreckt sich eine Spalte über zwei Rasterspalten: Ihre Helligkeitsrampe läuft dann über doppelt so viele Stufen, links die helle, rechts die dunkle Hälfte.
+* **Zeilen** gelten für die ganze Palette. *Lightest* und *Darkest* legen fest, wie hell die erste und wie dunkel die letzte Zeile ist; dazwischen sind die Stufen in wahrgenommener Helligkeit gleichmäßig verteilt.
+
+Alle Farben entstehen im wahrnehmungsgetreuen Farbraum **OKLCH**: Gleiche Helligkeitswerte wirken über alle Farbtöne gleich hell. Gelbtöne behalten ihren sonnigen Charakter, Blautöne bleiben klar und Schattenstufen saufen nicht unkontrolliert ab.
+
+### Vorlagen
+
+Über **Templates** ersetzen Sie die Palette durch eine mitgelieferte Vorlage:
+
+* **Stylized 3D** (Standard für neue Dateien): 22 Spalten × 5 Zeilen in den Gruppen *Neutral*, *Nature* und *Accent* – ruhige Töne für die Umgebung, kräftige Akzente für Spielrelevantes.
+* **Classic Color Wheel**: Eine Grauskala plus 16 gleichmäßig verteilte Farbtöne × 9 Zeilen – im Aufbau wie die Standardpalette von LPC 1.x, berechnet in OKLCH.
+
+Vorlagen sind JSON-Dateien im selben Format wie *Export Palette / Presets* – eine exportierte Palette lässt sich also jederzeit in ein anderes Projekt übernehmen.
+
+### Bemalte Flächen beim Umbau
+
+Bemalte Flächen speichern ihre Palettenzelle. Damit sie nach einem Umbau der Palette ihre Farbe behalten, rechnet LPC sie beim Klick auf **OK** um:
+
+* **Automatisch**: Spalten hinzufügen, verschieben (auch zwischen Gruppen), Gruppen umsortieren und eine Spalte auf *Span 2* verbreitern sind verlustfrei. Jede Fläche bleibt auf ihrer Spalte und Stufe; LPC erkennt Spalten an einer festen, unsichtbaren Kennung, nicht an ihrer Position.
+* **Mit Rückfrage**: Wird eine benutzte Spalte gelöscht, die Zeilenzahl geändert oder eine Spalte verschmälert, öffnet sich der Dialog **Remap Painted Faces**. Er listet jede betroffene alte Farbe mit der Zahl ihrer Flächen und schlägt die nächstliegende neue Farbe vor – in derselben Spalte, wenn es sie noch gibt. Die Vorschläge können Sie über X/Y korrigieren. *Cancel* stellt die vorherige Palette wieder her.
+
+Farbänderungen (Farbton, Chroma, Helligkeit, Tint/Shade, Artwork) verschieben keine Zellen; die Flächen nehmen einfach die neue Farbe ihrer Zelle an.
 
 ---
 
 ## Artwork: Farblehre und Shading-Harmonisierung
 
-Klassische Farbpaletten auf Basis des mathematischen HSV-Farbraums führen bei 3D-Shading häufig zu unerwünschten Effekten: Gelbtöne bleichen in hellen Stufen rasch zu grellem Weiß aus, während Blau- und Violetttöne in Schattenstufen schmutzig oder entsättigt wirken. Zudem nutzt professionelle 3D-Grafik und Malerei selten reine Helligkeitsabstufungen, sondern arbeitet mit **Farbtemperatur-Kontrasten** (warmes Sonnenlicht erzeugt kühle Schatten).
-
-Die Sektion **Artwork** bietet gezielte Stellschrauben für harmonische und stilisierte Farbverläufe:
-
-### Farbräume: HSV vs. OKLCH
-
-* **HSV (Standard / Legacy)**: Rein technischer Farbraum (`V = max(R, G, B)`). Garantiert 100 % Abwärtskompatibilität zu bestehenden Projekten und erzeugt den typisch knalligen Retro-Arcade-Look.
-* **OKLCH (Perzeptuell gleichförmig)**: Basiert auf der menschlichen Farbwahrnehmung. Gleiche Helligkeitswerte (*L*) besitzen über das gesamte Farbspektrum dieselbe wahrgenommene Helligkeit. Gelbtöne behalten ihren sonnigen Charakter, Blautöne bleiben klar und Schattenstufen saufen nicht unkontrolliert ab.
-
-### Farbtemperatur-Steuerung
+Professionelle 3D-Grafik und Malerei arbeiten selten mit reinen Helligkeitsabstufungen, sondern mit **Farbtemperatur-Kontrasten** (warmes Sonnenlicht erzeugt kühle Schatten). Die Sektion **Artwork** bietet dafür zwei Stellschrauben:
 
 * **Hue Shift (-1.0 bis +1.0)**: Simuliert atmosphärisches Shading.
   * *Positive Werte (0.3 bis 0.5)*: Highlights driften zur warmen Farbachse (Gelb/Gold), Schatten wandern zur kühlen Achse (Blau/Violett) – ideal für sonnige Außenszenen.
   * *Negative Werte (-0.3 bis -0.5)*: Kühle Lichter und wärmere Schatten – ideal für Nacht- und Mondscheinszenen.
   * *0.0*: Neutrale Farbtöne ohne Drift.
-* **Warmth (-1.0 bis +1.0)**: Globaler Farbtemperatur-Bias. Verschiebt das gesamte Farbspektrum sowie die Graustufenspalte subtil in Richtung Bernstein/Gold (+1.0) oder kühles Himmelblau (-1.0).
+* **Warmth (-1.0 bis +1.0)**: Globaler Farbtemperatur-Bias. Verschiebt alle Farbtöne sowie das Grau subtil in Richtung Bernstein/Gold (+1.0) oder kühles Himmelblau (-1.0).
 
 ### Empfohlene Einstellungen (Rezepte)
 
-* **Moderner Low-Poly-Look (Outdoor / Sonne)**: `OKLCH`, `Hue Shift: 0.35`, `Warmth: 0.15`.
-* **Nacht / Sci-Fi / Mondschein**: `OKLCH`, `Hue Shift: -0.35`, `Warmth: -0.25`.
-* **Klassischer Retro-Arcade-Look**: `HSV`, `Hue Shift: 0.0`, `Warmth: 0.0`.
+* **Stilisiertes 3D (Outdoor / Sonne)**: `Hue Shift: 0.5`, `Warmth: 0.2` – die Werte der Vorlage *Stylized 3D*.
+* **Nacht / Sci-Fi / Mondschein**: `Hue Shift: -0.35`, `Warmth: -0.25`.
+* **Neutral**: `Hue Shift: 0.0`, `Warmth: 0.0`.
 
+Die Grundstimmung eines Levels gehört dagegen ins Licht und Postprocessing der Engine – die Palette bleibt dieselbe.
 
+---
+
+## Umstieg von LPC 1.x
+
+LPC 2.0 kennt nur noch das Modell aus Gruppen und Spalten. Öffnen Sie eine mit LPC 1.x gespeicherte Datei, wandelt LPC ihre Palette einmalig um:
+
+* Die Graustufenspalte wird zur Gruppe *Greyscale* (weiterhin von Weiß bis Schwarz), der Farbkreis zur Gruppe *Color Wheel* mit denselben Farbtönen. Das Raster bleibt gleich groß, **jede bemalte Fläche behält ihre Zelle**.
+* *Saturation* wird zum Chroma der Gruppe *Color Wheel*, *Brightness* zum Helligkeitsbereich. Der Umschalter *Color Mode* entfällt: Alle Paletten werden in OKLCH berechnet.
+* **Die Farben können sich ändern.** Paletten im früheren Standard-Modus *HSV* sehen sichtbar anders aus (andere Sättigung und Helligkeit je Farbton); Paletten im Modus *OKLCH* bleiben in den Farbspalten praktisch gleich.
+
+Nach der Umwandlung weisen das N-Panel und der Settings-Dialog darauf hin, bis Sie den Hinweis mit *Dismiss* schließen. Wer die alten Farben exakt braucht, bleibt für dieses Projekt bei LPC 1.2.

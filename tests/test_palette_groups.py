@@ -1,0 +1,265 @@
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+"""Group/column palette model and 1.x conversion (docs/plan_palettengruppen.md, step 1)."""
+
+import itertools
+import unittest
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "addon"))
+
+from model import palette as P
+
+
+def _classic_params(**overrides):
+    params = {
+        "cols": 16, "rows": 9, "add_greyscale": True,
+        "saturation": 1.0, "brightness": 1.0, "tint": 0.8, "shade": 0.8,
+    }
+    params.update(overrides)
+    return params
+
+
+# The approved palette ("Stilisiertes 3D"): 22 grid columns x 5 rows.
+def _stylized_palette():
+    def col(cid, name, hue, chroma=None, span=1):
+        return {"id": cid, "name": name, "hue": hue, "chroma": chroma, "span": span}
+
+    return {
+        "groups": [
+            {"name": "Neutral", "chroma": 0.02, "columns": [
+                col("grau", "Grau", 0, 0.0, span=2),
+                col("kuehl", "Kühl", 250),
+                col("warm", "Warm", 70),
+            ]},
+            {"name": "Natur", "chroma": 0.05, "columns": [
+                col("rost", "Rost", 35, 0.06), col("braun", "Braun", 55, 0.055),
+                col("ocker", "Ocker", 75, 0.06), col("sand", "Sand", 85, 0.045),
+                col("oliv", "Oliv", 110, 0.055), col("moos", "Moos", 135),
+                col("tanne", "Tanne", 165, 0.045), col("schiefer", "Schiefer", 245, 0.035),
+            ]},
+            {"name": "Akzent", "chroma": 0.17, "columns": [
+                col("rot", "Rot", 25), col("orange", "Orange", 50), col("gelb", "Gelb", 90),
+                col("limette", "Limette", 125), col("gruen", "Grün", 150),
+                col("cyan", "Cyan", 195), col("azur", "Azur", 235), col("blau", "Blau", 265),
+                col("violett", "Violett", 300), col("magenta", "Magenta", 345),
+            ]},
+        ],
+        "rows": 5, "l_top": 0.93, "l_bottom": 0.25,
+        "tint": 0.8, "shade": 0.9, "hue_shift": 0.5, "warmth": 0.2,
+    }
+
+
+# Reference generator from the plan's appendix, verbatim apart from the
+# image code: (name, hue, peak chroma[, half of the grey ramp]).
+_REF_ROWS = 5
+_REF_L_TOP, _REF_L_BOTTOM = 0.93, 0.25
+_REF_G = dict(tint=0.8, shade=0.9, hue_shift=0.5, warmth=0.2)
+_REF_COLUMNS = [
+    ("Grau", 0, 0.0, 0), ("Grau+", 0, 0.0, 1), ("Kühl", 250, 0.02), ("Warm", 70, 0.02),
+    ("Rost", 35, 0.06), ("Braun", 55, 0.055), ("Ocker", 75, 0.06), ("Sand", 85, 0.045),
+    ("Oliv", 110, 0.055), ("Moos", 135, 0.05), ("Tanne", 165, 0.045), ("Schiefer", 245, 0.035),
+    ("Rot", 25, 0.17), ("Orange", 50, 0.17), ("Gelb", 90, 0.17), ("Limette", 125, 0.17),
+    ("Grün", 150, 0.17), ("Cyan", 195, 0.17), ("Azur", 235, 0.17), ("Blau", 265, 0.17),
+    ("Violett", 300, 0.17), ("Magenta", 345, 0.17),
+]
+
+
+def _ref_cell(h0, cpeak, y, half=None):
+    ROWS, G = _REF_ROWS, _REF_G
+    t = y / (ROWS - 1)
+    if half is not None:
+        t = (half * ROWS + y) / (2 * ROWS - 1)
+    hs, w = G["hue_shift"], G["warmth"]
+    h = (h0 + w * 30.0) % 360.0
+    if t <= 0.5:
+        rf = 1 - t / 0.5
+        diff = (95.0 - h + 180) % 360 - 180
+        h = (h + diff * 0.22 * abs(hs) * rf) % 360
+        C = cpeak * (1 - 0.5 * G["tint"] * rf)
+    else:
+        rf = (t - 0.5) / 0.5
+        diff = (265.0 - h + 180) % 360 - 180
+        h = (h + diff * 0.28 * abs(hs) * rf) % 360
+        C = cpeak * (1 - 0.25 * G["shade"] * rf)
+    L = _REF_L_TOP - (_REF_L_TOP - _REF_L_BOTTOM) * t
+    if cpeak == 0:
+        cool = (t - 0.5) * 0.02 * hs
+        wb = w * 0.01
+        return P._oklab_to_srgb(L, wb - cool * 0.4, wb - cool * 0.8)
+    return P._oklch_to_rgb_clamped(L, C, h)
+
+
+def _old_oklch_hue_cell(i, y, params):
+    """LPC 1.x OKLCH formula of hue column i (reference for the conversion)."""
+    rows, n = params["rows"], params["cols"]
+    t = y / (rows - 1) if rows > 1 else 0.5
+    hs, w = params.get("hue_shift", 0.0), params.get("warmth", 0.0)
+    base = ((i / n) * 360.0 + w * 30.0) % 360.0
+    if t <= 0.5:
+        rf = 1.0 - t / 0.5
+        pole = 95.0 if hs >= 0 else 265.0
+        diff = (pole - base + 180.0) % 360.0 - 180.0
+        h = (base + diff * (0.22 * abs(hs) * rf)) % 360.0
+        C = 0.16 * params["saturation"] * (1.0 - 0.50 * params["tint"] * rf)
+    else:
+        rf = (t - 0.5) / 0.5
+        pole = 265.0 if hs >= 0 else 95.0
+        diff = (pole - base + 180.0) % 360.0 - 180.0
+        h = (base + diff * (0.28 * abs(hs) * rf)) % 360.0
+        C = 0.16 * params["saturation"] * (1.0 - 0.25 * params["shade"] * rf)
+    L = max(0.02, min(0.98, (0.94 - 0.72 * t) * params["brightness"]))
+    return P._oklch_to_rgb_clamped(L, C, h)
+
+
+class TestConversion(unittest.TestCase):
+    """LPC 1.x parameters -> palette: same grid, OKLCH colors."""
+
+    def test_same_grid(self):
+        for grey, cols, rows in itertools.product((True, False), (1, 7, 16, 64), (1, 2, 9)):
+            params = _classic_params(add_greyscale=grey, cols=cols, rows=rows)
+            with self.subTest(params=params):
+                pal = P.palette_from_params(params)
+                P.validate_palette(pal)
+                self.assertEqual(P.cell_count(pal), P.cell_count(params))
+
+    def test_flat_params_equal_converted_palette(self):
+        params = _classic_params(hue_shift=0.4, warmth=-0.2, saturation=0.7)
+        pal = P.palette_from_params(params)
+        self.assertEqual(P.build_pixels(pal), P.build_pixels(params))
+        for color in ((1, 1, 1), (0, 0, 0), (0.8, 0.2, 0.1), (0.1, 0.5, 0.9)):
+            self.assertEqual(P.nearest_cell(color, pal), P.nearest_cell(color, params))
+
+    def test_oklch_hue_columns_unchanged(self):
+        # 1.x OKLCH scenes keep their hue columns' colors (up to rounding).
+        for hs, warmth, sat, bright in itertools.product(
+                (0.0, 0.5, -0.7), (0.0, 0.2, -1.0), (1.0, 0.35), (1.0, 0.6)):
+            params = _classic_params(color_mode="OKLCH", cols=12, rows=7, hue_shift=hs,
+                                     warmth=warmth, saturation=sat, brightness=bright,
+                                     tint=0.3, shade=0.9)
+            for i in range(12):
+                for y in range(7):
+                    with self.subTest(params=params, i=i, y=y):
+                        got = P.color_at(i + 1, y, params)[:3]
+                        for u, v in zip(got, _old_oklch_hue_cell(i, y, params)):
+                            self.assertAlmostEqual(u, v, places=9)
+
+    def test_structure(self):
+        pal = P.palette_from_params(_classic_params(cols=12))
+        self.assertEqual(P.group_ranges(pal), [
+            (P.CLASSIC_GREYSCALE_GROUP, 0, 1), (P.CLASSIC_WHEEL_GROUP, 1, 12)])
+        ids = [c["id"] for c, _part in P.grid_columns(pal)]
+        self.assertEqual(ids[:4], [P.CLASSIC_GREYSCALE_ID, "hue-0", "hue-1/12", "hue-1/6"])
+        self.assertEqual(len(set(ids)), 13)
+
+        pal = P.palette_from_params(_classic_params(cols=5, add_greyscale=False))
+        self.assertEqual(P.group_ranges(pal), [(P.CLASSIC_WHEEL_GROUP, 0, 5)])
+
+
+class TestStylizedPalette(unittest.TestCase):
+    """The approved palette matches the plan's reference generator."""
+
+    def setUp(self):
+        self.pal = _stylized_palette()
+
+    def test_valid_and_dimensions(self):
+        P.validate_palette(self.pal)
+        self.assertEqual(P.cell_count(self.pal), (22, 5))
+        self.assertEqual(P.group_ranges(self.pal), [
+            ("Neutral", 0, 4), ("Natur", 4, 8), ("Akzent", 12, 10)])
+
+    def test_matches_reference_generator(self):
+        for x, spec in enumerate(_REF_COLUMNS):
+            _name, h0, cpeak = spec[:3]
+            half = spec[3] if len(spec) > 3 else None
+            for y in range(_REF_ROWS):
+                with self.subTest(column=spec[0], y=y):
+                    self.assertEqual(P.color_at(x, y, self.pal)[:3],
+                                     _ref_cell(h0, cpeak, y, half))
+
+    def test_grey_ramp_spans_two_columns(self):
+        (c0, p0), (c1, p1) = P.grid_columns(self.pal)[:2]
+        self.assertIs(c0, c1)
+        self.assertEqual((p0, p1), (0, 1))
+        # One continuous ramp: lightness strictly decreasing over 10 cells.
+        cells = [P.color_at(x, y, self.pal) for x in (0, 1) for y in range(5)]
+        lum = [0.2126 * r + 0.7152 * g + 0.0722 * b for r, g, b, _a in cells]
+        self.assertEqual(lum, sorted(lum, reverse=True))
+        self.assertEqual(len(set(lum)), 10)
+
+    def test_chroma_inheritance(self):
+        groups = self.pal["groups"]
+        moos = groups[1]["columns"][5]
+        self.assertEqual(P.column_chroma(moos, groups[1]), 0.05)
+        rost = groups[1]["columns"][0]
+        self.assertEqual(P.column_chroma(rost, groups[1]), 0.06)
+        # Changing the group's chroma moves inheriting columns only.
+        groups[1]["chroma"] = 0.1
+        self.assertNotEqual(P.color_at(9, 2, self.pal)[:3], _ref_cell(135, 0.05, 2))
+        self.assertEqual(P.color_at(4, 2, self.pal)[:3], _ref_cell(35, 0.06, 2))
+
+    def test_group_lightness_range(self):
+        groups = self.pal["groups"]
+        self.assertEqual(P.lightness_range(groups[0], self.pal), (0.93, 0.25))
+        groups[0]["l_bottom"] = 0.05                       # Neutral darker
+        self.assertEqual(P.lightness_range(groups[0], self.pal), (0.93, 0.05))
+        # Only that group changes; the top end still comes from the palette.
+        self.assertEqual(P.color_at(0, 0, self.pal)[:3], _ref_cell(0, 0.0, 0, 0))
+        self.assertNotEqual(P.color_at(1, 4, self.pal)[:3], _ref_cell(0, 0.0, 4, 1))
+        self.assertEqual(P.color_at(4, 4, self.pal)[:3], _ref_cell(35, 0.06, 4))
+        L, _a, _b = P.srgb_to_oklab(*P.color_at(1, 4, self.pal)[:3])
+        self.assertAlmostEqual(L, 0.05, places=3)
+        groups[0]["l_top"] = 1.0
+        L, _a, _b = P.srgb_to_oklab(*P.color_at(0, 0, self.pal)[:3])
+        self.assertAlmostEqual(L, 1.0, places=2)  # warmth tint clipped at white
+
+    def test_reorder_moves_group_as_block(self):
+        groups = self.pal["groups"]
+        before = [P.color_at(x, 3, self.pal) for x in range(12, 22)]
+        groups.insert(0, groups.pop())  # Akzent first
+        self.assertEqual([P.color_at(x, 3, self.pal) for x in range(10)], before)
+
+    def test_bounds(self):
+        with self.assertRaises(ValueError):
+            P.color_at(22, 0, self.pal)
+        with self.assertRaises(ValueError):
+            P.color_at(0, 5, self.pal)
+
+    def test_single_row(self):
+        self.pal["rows"] = 1
+        P.validate_palette(self.pal)
+        pixels, cols, rows = P.build_pixels(self.pal)
+        self.assertEqual((cols, rows), (22, 1))
+        self.assertTrue(all(0.0 <= v <= 1.0 for v in pixels))
+
+
+class TestValidation(unittest.TestCase):
+    def setUp(self):
+        self.pal = _stylized_palette()
+
+    def test_duplicate_id(self):
+        self.pal["groups"][2]["columns"][0]["id"] = "rost"
+        with self.assertRaises(ValueError):
+            P.validate_palette(self.pal)
+
+    def test_missing_id(self):
+        self.pal["groups"][0]["columns"][1]["id"] = ""
+        with self.assertRaises(ValueError):
+            P.validate_palette(self.pal)
+
+    def test_span_out_of_range(self):
+        self.pal["groups"][0]["columns"][0]["span"] = 3
+        with self.assertRaises(ValueError):
+            P.validate_palette(self.pal)
+
+    def test_no_columns(self):
+        self.pal["groups"] = [{"name": "Leer", "chroma": 0.1, "columns": []}]
+        with self.assertRaises(ValueError):
+            P.validate_palette(self.pal)
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -40,6 +40,7 @@ same `{{prefix}}` placeholder as the filenames, so they stay in sync whatever
 the active namespace prefix is.
 """
 
+import json
 import hashlib
 import os
 import re
@@ -152,6 +153,41 @@ def _preset_values_glsl(scene):
     return "\n".join(lines)
 
 
+def _gd_string(text):
+    """A GDScript string literal for free text (JSON's escaping is valid
+    GDScript: quotes, backslashes, control characters, non-ASCII kept)."""
+    return json.dumps(str(text), ensure_ascii=False)
+
+
+def _palette_groups_gdscript(params):
+    """The palette groups as the body of a GDScript Array[Dictionary]
+    literal, one per line: name, first grid column, grid column count."""
+    lines = [
+        f'\t{{"name": {_gd_string(name)}, "first": {first}, "count": {count}}},'
+        for name, first, count in model_palette.group_ranges(params)
+    ]
+    return "\n".join(lines)
+
+
+def _palette_column_names_gdscript(params):
+    """"Group · Column" per grid column, as the body of a GDScript
+    PackedStringArray literal, one per line."""
+    return "\n".join(f"\t{_gd_string(label)},"
+                     for label in model_palette.grid_column_labels(params))
+
+
+def _palette_cell_x_enum(params):
+    """The argument list of `@export_enum` for palette_cell_x: one
+    "Group · Column:x" per grid column, x being the stored number. `,` and
+    `:` separate entries / values in Godot's enum hint, so they become
+    spaces inside labels."""
+    entries = []
+    for x, label in enumerate(model_palette.grid_column_labels(params)):
+        clean = label.replace(",", " ").replace(":", " ")
+        entries.append(_gd_string(f"{clean}:{x}"))
+    return ",\n\t\t".join(entries)
+
+
 def _preset_legend(scene):
     """A `lpc_preset_position` value <-> preset name comment block -- list
     position is a plain int with no name attached once it's on a mesh, so
@@ -259,23 +295,11 @@ def build_context(scene):
         "palette_rows": str(rows),
         "palette_cols_max": str(cols - 1),
         "palette_rows_max": str(rows - 1),
-        # The palette PARAMETERS -- the `model/palette.color_at` inputs, so a
-        # target can reproduce cell colors procedurally instead of sampling
-        # the exported PNG (the Godot resource script does; the shaders do
-        # not, they have the texture). Everything the palette is derived from
-        # travels here, whether or not a template uses all of it yet.
-        #
-        # `params["cols"]` -- the number of HUE steps around the wheel -- is
-        # deliberately NOT among them: palette_cols above is cell_count's
-        # total, i.e. that same number plus the optional greyscale column, so
-        # a target needing the hue divisor subtracts the flag below and is
-        # done. One exported value less to keep consistent with the rest.
-        "palette_has_greyscale": "true" if params["add_greyscale"] else "false",
-        "palette_saturation": _fmt(params["saturation"]),
-        "palette_brightness": _fmt(params["brightness"]),
+        # The global palette values, for targets that want to reason about
+        # the palette. The colors themselves travel as palette_colors_gdscript
+        # (and the PNG); groups/columns are not exported yet.
         "palette_tint": _fmt(params["tint"]),
         "palette_shade": _fmt(params["shade"]),
-        "palette_color_mode": params.get("color_mode", "HSV"),
         "palette_hue_shift": _fmt(params.get("hue_shift", 0.0)),
         "palette_warmth": _fmt(params.get("warmth", 0.0)),
         # Every cell's color as the body of a GDScript PackedColorArray
@@ -283,8 +307,15 @@ def build_context(scene):
         # row 0 = lightest) -- for code that needs a cell's color without the
         # shader (the exported resource script's color_at). Straight from
         # model_palette.color_at, so it follows every palette parameter
-        # (color mode, hue shift, warmth, ...) with nothing to port.
+        # (groups, columns, hue shift, warmth, ...) with nothing to port.
         "palette_colors_gdscript": _palette_colors_gdscript(params),
+        # The palette's structure (groups, column labels), so Godot code and
+        # the Inspector can name a cell instead of showing bare numbers.
+        # Labels describe the palette at export time: reordering columns
+        # shifts which column a stored x names (like presets).
+        "palette_groups_gdscript": _palette_groups_gdscript(params),
+        "palette_column_names_gdscript": _palette_column_names_gdscript(params),
+        "palette_cell_x_enum": _palette_cell_x_enum(params),
         # The presets as the body of a shader vec4 array initializer, one per
         # line, in list order: (roughness, metallic, clearcoat, emission),
         # emission raw (before emission_factor). For sets that ship no preset
@@ -314,7 +345,7 @@ def export_fingerprint(scene):
     function of them, so they carry the same information without hashing
     the whole pixel array)."""
     lut = tuple(round(v, 6) for v in model_presets.build_preset_lut_pixels(scene))
-    palette_params = tuple(sorted(picker_interface.params_from_scene(scene).items()))
+    palette_params = json.dumps(picker_interface.params_from_scene(scene), sort_keys=True)
     return repr((build_context(scene), lut, palette_params))
 
 

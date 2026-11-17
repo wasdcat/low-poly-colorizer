@@ -4,7 +4,7 @@
 
 # Low Poly Colorizer
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue)
+![Version](https://img.shields.io/badge/version-2.0.0-blue)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 ![Blender](https://img.shields.io/badge/Blender-4.2%2B-orange)
 ![Godot](https://img.shields.io/badge/Godot-4.x-orange)
@@ -17,7 +17,7 @@ Originally developed in-house for **WASDCAT Games'** Blender → Godot productio
 
 ## Core Concept
 
-- **Single Palette Texture & Artwork Controls:** All asset colors are mapped to a compact palette texture. Features classic **HSV** or perceptually uniform **OKLCH** color spaces, **Hue Shift** (warm sunlight highlights and cool skylight shadows), and global **Warmth** temperature bias for artistic low-poly palettes.
+- **Palette of Groups & Columns:** All asset colors come from one compact palette texture, organized by role in groups of columns (e.g. Neutral / Nature / Accent) with chroma per group or column, computed in the perceptually uniform **OKLCH** space. **Hue Shift** (warm highlights, cool shadows) and **Warmth** tune the whole palette. Painted faces follow when columns are added, moved or removed.
 - **Single Draw-Call Surface:** All colored faces share a single material and import into the engine as one surface. Each face only stores two references in UV channels – its palette cell and its PBR preset (roughness, metallic, emission, clearcoat) – instead of needing one material per color.
 - **Procedural Geometry Nodes:** Full procedural workflow support via the `LPC Set Material` node group – drive palette cells and material presets directly inside modifier trees.
 - **Instant Live Assignment:** Click a palette cell in the GPU overlay to paint the selection immediately – no extra Assign step. *Sample* picks up color and preset from already painted faces.
@@ -51,7 +51,7 @@ Requirement: **Blender 4.2 LTS or newer** (Extension system).
 2. Search for **Low Poly Colorizer** and click **Install**.
 
 ### Manual Installation (ZIP)
-1. Download `low_poly_colorizer-1.2.0.zip` from [Releases](../../releases) (or build locally using `python scripts/build_dist.py`).
+1. Download `low_poly_colorizer-2.0.0.zip` from [Releases](../../releases) (or build locally using `python scripts/build_dist.py`).
 2. In Blender: **Edit ▸ Preferences ▸ Get Extensions ▸ ▾ (top right menu) ▸ Install from Disk…** and select the ZIP file (or drag & drop the ZIP directly onto the Blender window).
 3. In the 3D Viewport, press `N` to open the sidebar and switch to the **LPC** tab.
 

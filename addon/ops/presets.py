@@ -4,13 +4,14 @@
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
 # A WASDCAT Games project. <https://www.wasdcat.com/>
 
-"""Preset operators and JSON import/export.
+"""Preset operators and the preset part of the LPC file format.
 
 The preset DATA MODEL (PropertyGroup, uid, the LUT/list-position scatter)
 lives in model/presets.py -- presets are the authority for parameter values.
 This module provides the operators around it: add / delete (refcount-guarded,
 Invariant 6) / duplicate, the bundled defaults from
-constants.DEFAULT_PRESETS, and saving/sharing as JSON.
+constants.DEFAULT_PRESETS, and the preset (de)serialization the LPC file
+import/export uses (ops/file_io.py).
 
 Every operator that can add, remove, or reorder a preset calls
 `model_presets.resync_after_list_change` at the end -- it keeps the per-face
@@ -56,7 +57,7 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 VALUE_KEYS = model_presets.PRESET_VALUE_KEYS
 VALUE_DEFAULTS = model_presets.PRESET_VALUE_DEFAULTS
 
-JSON_VERSION = 1
+JSON_VERSION = 1  # preset files of LPC 1.x (read only)
 
 # Slack for "did this preset value change on import?" -- absorbs the
 # float32 storage round-trip (0.3 read back as 0.30000001) so an unchanged
@@ -84,22 +85,15 @@ def default_presets():
     return presets_from_list(constants.DEFAULT_PRESETS, strict=True)
 
 
-def presets_to_json(presets):
-    """Serialize a list of preset dicts to JSON text. Parameter values are
-    rounded to 2 decimals: the float32 sliders carry round-trip noise
-    (0.3 -> 0.30000001192...) that would otherwise litter the export, and
-    2 decimals is finer than the slider's visible precision."""
-    rounded = [
-        {
-            k: (round(v, 2) if k in VALUE_KEYS else v)
-            for k, v in preset.items()
-        }
+def rounded_presets(presets):
+    """Preset dicts with their values rounded to 2 decimals, for writing to
+    a file: the float32 sliders carry round-trip noise (0.3 ->
+    0.30000001192...) that would otherwise litter the export, and 2 decimals
+    is finer than the slider's visible precision."""
+    return [
+        {k: (round(v, 2) if k in VALUE_KEYS else v) for k, v in preset.items()}
         for preset in presets
     ]
-    return json.dumps(
-        {"version": JSON_VERSION, "presets": rounded},
-        indent=2,
-    )
 
 
 def presets_from_list(raw_presets, strict=False):
@@ -144,7 +138,8 @@ def presets_from_list(raw_presets, strict=False):
 
 
 def presets_from_json(text):
-    """Parse and validate JSON text into a list of preset dicts.
+    """Parse and validate a preset file of LPC 1.x (`version: 1`) into a
+    list of preset dicts (newer files: ops/file_io.py).
 
     Raises ValueError on anything malformed (see `presets_from_list`).
     """
@@ -164,8 +159,6 @@ def presets_from_json(text):
 # --------------------------------------------------------------------------
 
 if bpy is not None:
-    from bpy_extras.io_utils import ExportHelper, ImportHelper
-
     def preset_to_dict(preset):
         return make_preset(
             preset.name,
@@ -217,7 +210,7 @@ if bpy is not None:
                 updated += 1
         return added, updated, unchanged
 
-    def _merge_report(added, updated, unchanged):
+    def merge_report(added, updated, unchanged):
         """Human summary of a merge -- only the non-zero buckets, so an
         unchanged re-import does not falsely claim it updated anything."""
         parts = [
@@ -326,61 +319,5 @@ if bpy is not None:
         def execute(self, context):
             counts = merge_presets_by_name(context.scene, default_presets())
             model_presets.resync_after_list_change(context.scene)
-            self.report({"INFO"}, f"Default presets: {_merge_report(*counts)}")
+            self.report({"INFO"}, f"Default presets: {merge_report(*counts)}")
             return {"FINISHED"}
-
-    class LPC_OT_preset_export_json(bpy.types.Operator, ExportHelper):
-        """Save all presets to a JSON file"""
-
-        bl_idname = "lpc.preset_export_json"
-        bl_label = "Export Presets"
-
-        filename_ext = ".json"
-        filter_glob: bpy.props.StringProperty(default="*.json", options={"HIDDEN"})
-
-        @classmethod
-        def poll(cls, context):
-            return len(context.scene.lpc_presets) > 0
-
-        def execute(self, context):
-            text = presets_to_json(
-                [preset_to_dict(p) for p in context.scene.lpc_presets]
-            )
-            try:
-                with open(self.filepath, "w", encoding="utf-8") as f:
-                    f.write(text + "\n")
-            except OSError as exc:
-                self.report({"ERROR"}, f"Could not write file: {exc}")
-                return {"CANCELLED"}
-            self.report({"INFO"}, f"Exported {len(context.scene.lpc_presets)} preset(s)")
-            return {"FINISHED"}
-
-    class LPC_OT_preset_import_json(bpy.types.Operator, ImportHelper):
-        """Import presets from a JSON file. Presets whose name already
-        exists are updated in place (faces using them rescatter live); new
-        names are appended -- re-importing the same file changes nothing"""
-
-        bl_idname = "lpc.preset_import_json"
-        bl_label = "Import Presets"
-        bl_options = {"REGISTER", "UNDO"}
-
-        filename_ext = ".json"
-        filter_glob: bpy.props.StringProperty(default="*.json", options={"HIDDEN"})
-
-        def execute(self, context):
-            try:
-                with open(self.filepath, "r", encoding="utf-8") as f:
-                    text = f.read()
-            except OSError as exc:
-                self.report({"ERROR"}, f"Could not read file: {exc}")
-                return {"CANCELLED"}
-            try:
-                presets = presets_from_json(text)
-            except ValueError as exc:
-                self.report({"ERROR"}, f"Invalid preset file: {exc}")
-                return {"CANCELLED"}
-            counts = merge_presets_by_name(context.scene, presets)
-            model_presets.resync_after_list_change(context.scene)
-            self.report({"INFO"}, f"Imported presets: {_merge_report(*counts)}")
-            return {"FINISHED"}
-

@@ -22,7 +22,7 @@ it carries small REFERENCES, and the actual values live in two small images:
 This mirrors what the exported Godot shader does (texture lookups instead of
 raw per-face values), so the Blender preview and the Godot render are driven
 by the same two textures and stay in sync by construction. It also means a
-palette-settings edit (saturation, tint, ...) or a preset value edit now only
+palette-settings edit (chroma, tint, ...) or a preset value edit now only
 regenerates an image -- no per-face mesh write, and (for palette edits) a
 capability the old baked-value design never had: already-painted faces pick
 up the new color automatically.

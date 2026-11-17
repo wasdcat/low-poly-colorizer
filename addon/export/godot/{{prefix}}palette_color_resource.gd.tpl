@@ -30,7 +30,7 @@ extends Resource
 ## The palette as it stood at the last export: its parameters, and every
 ## cell's color as the add-on computed it ([constant PALETTE]). [method color_at]
 ## reads that array instead of recomputing anything or loading a texture, so it
-## follows every palette setting (color mode, hue shift, warmth, ...) and the
+## follows every palette setting (groups, columns, hue shift, warmth, ...) and the
 ## script stays free of references to the other exported files -- it does not
 ## care where in the project they live.
 ##
@@ -42,38 +42,37 @@ extends Resource
 ## .tres files keep their cell coordinates and simply take on the new color
 ## there -- exactly what happens to the painted meshes.
 
-## Total columns, including the greyscale column when there is one -- the
-## bound [member palette_cell_x] is clamped to.
+## Total columns of the grid (all groups, a two-column ramp counted twice) --
+## the bound [member palette_cell_x] is clamped to.
 const PALETTE_COLS: int = {{palette_cols}}
 
 ## Rows in the grid, from row 0 (lightest) to the last row (darkest).
+## [member palette_cell_y] is clamped to it.
 const PALETTE_ROWS: int = {{palette_rows}}
 
-## Whether column 0 is a white-to-black ramp instead of a hue. The remaining
-## columns are the hues, so this also says how much of the grid's width is not
-## part of the color wheel.
-const PALETTE_HAS_GREYSCALE: bool = {{palette_has_greyscale}}
-
-## Saturation of the middle row (the base color).
-const PALETTE_SATURATION: float = {{palette_saturation}}
-
-## Brightness of the middle row (the base color).
-const PALETTE_BRIGHTNESS: float = {{palette_brightness}}
-
-## How far the lightest row (row 0) is mixed toward white (0 = like the middle row).
+## How much chroma fades toward the lightest row (row 0), 0..1.
 const PALETTE_TINT: float = {{palette_tint}}
 
-## How far the darkest row (the last one) is mixed toward black (0 = like the middle row).
+## How much chroma fades toward the darkest row (the last one), 0..1.
 const PALETTE_SHADE: float = {{palette_shade}}
-
-## Color space the palette was built in: "HSV" or "OKLCH".
-const PALETTE_COLOR_MODE: String = "{{palette_color_mode}}"
 
 ## Temperature drift across the rows, -1..1 (0 = none).
 const PALETTE_HUE_SHIFT: float = {{palette_hue_shift}}
 
 ## Global temperature bias, -1..1 (0 = neutral).
 const PALETTE_WARMTH: float = {{palette_warmth}}
+
+## The palette's groups, left to right: [code]name[/code], the [code]first[/code]
+## grid column and the column [code]count[/code] (a two-column ramp counts twice).
+const PALETTE_GROUPS: Array[Dictionary] = [
+{{palette_groups_gdscript}}
+]
+
+## "Group · Column" for every grid column, index = x. The two halves of a
+## two-column ramp are "Column 1/2" and "Column 2/2".
+const PALETTE_COLUMN_NAMES: PackedStringArray = [
+{{palette_column_names_gdscript}}
+]
 
 ## Every cell's color, row by row: cell (x, y) sits at index
 ## [code]y * PALETTE_COLS + x[/code], row 0 first (the lightest row). Written by
@@ -84,8 +83,16 @@ const PALETTE: PackedColorArray = [
 
 
 ## Palette column, in the same numbering the picker and the singlecolor
-## shader's `lpc_palette_cell_x` use.
-@export_range(0, {{palette_cols_max}}) var palette_cell_x: int = 0:
+## shader's `lpc_palette_cell_x` use. The Inspector lists it by name
+## ("Group · Column"); what is saved is the number.
+##
+## [b]Note:[/b] reordering, adding or removing columns in the add-on shifts the
+## numbers -- a saved x then names a different column after the next export
+## (the same as reordering presets). Painted meshes are remapped by the
+## add-on; .tres files are not.
+@export_enum(
+		{{palette_cell_x_enum}}
+) var palette_cell_x: int = 0:
 	set(value):
 		if palette_cell_x != value:
 			palette_cell_x = value

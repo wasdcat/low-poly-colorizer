@@ -17,9 +17,11 @@ Panel layout:
       [no header]        UV-fix warning (when needed), the Export target +
                          button, and the Settings button
 
-The rarely-edited values -- palette parameters (Grid / Base Color /
-Tint+Shade) and the global material values -- live in the modal
-"Settings" dialog (`LPC_OT_palette_settings`, `invoke_props_dialog`).
+The rarely-edited values -- the palette (template, rows, lightness, groups
+and their columns, tint/shade, artwork) and the global material values --
+live in the modal "Settings" dialog (`LPC_OT_palette_settings`,
+`invoke_props_dialog`). Confirming it commits palette layout changes,
+remapping painted faces (ops/palette.py).
 """
 
 import bpy
@@ -54,32 +56,35 @@ def _format_selection(state):
 
 
 class LPC_OT_palette_settings(bpy.types.Operator):
-    """Edit the palette parameters and global material values in a modal dialog"""
+    """Edit the palette and the global material values in a modal dialog"""
 
     bl_idname = "lpc.palette_settings"
     bl_label = "Settings"
-    bl_options = {"REGISTER"}
+    bl_options = {"REGISTER", "UNDO"}
 
-    # Keys of LPC_Globals snapshotted alongside the palette params.
+    # Keys of LPC_Globals snapshotted alongside the palette.
     _GLOBAL_KEYS = ("emission_factor", "clearcoat_roughness")
 
     def invoke(self, context, event):
-        # Edits in the dialog apply live to the scene; for a working
-        # Cancel the values are snapshotted here and restored in cancel().
-        # params_from_scene's keys match the property names 1:1.
+        # Edits in the dialog apply live to the scene (preview image); the
+        # palette is snapshotted here: Cancel restores it, OK commits it --
+        # remapping the painted faces from the snapshot (ops/palette.py).
         from ..picker import interface as picker_interface
 
-        self._backup = picker_interface.params_from_scene(context.scene)
+        scene = context.scene
+        if picker_interface.ensure_palette_initialized(scene):
+            picker_interface.refresh_palette_consumers(context)
+        self._backup = picker_interface.params_from_scene(scene)
         self._globals_backup = {
-            key: getattr(context.scene.lpc_globals, key)
-            for key in self._GLOBAL_KEYS
+            key: getattr(scene.lpc_globals, key) for key in self._GLOBAL_KEYS
         }
-        return context.window_manager.invoke_props_dialog(self)
+        return context.window_manager.invoke_props_dialog(self, width=460)
 
     def cancel(self, context):
-        params_pg = context.scene.lpc_palette_params
-        for key, value in self._backup.items():
-            setattr(params_pg, key, value)
+        from ..picker import interface as picker_interface
+
+        picker_interface.write_palette(context.scene.lpc_palette_params, self._backup)
+        picker_interface.refresh_palette_consumers(context)
         # Restoring triggers the globals' update callbacks -> the preview
         # material is rolled back too.
         globals_pg = context.scene.lpc_globals
@@ -88,33 +93,85 @@ class LPC_OT_palette_settings(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        params_pg = context.scene.lpc_palette_params
+        p = context.scene.lpc_palette_params
+
+        if p.legacy_notice:
+            box = layout.box()
+            col = box.column(align=True)
+            col.label(text="Palette converted from LPC 1.x.", icon="INFO")
+            col.label(text="Painted faces kept their cells; colors may differ.")
+            box.operator("lpc.palette_dismiss_notice")
+
+        row = layout.row()
+        row.label(text="Palette")
+        row.menu("LPC_MT_palette_templates", text="Templates", icon="PRESET")
 
         grid_box = layout.box()
-        grid_box.label(text="Grid")
         row = grid_box.row(align=True)
-        row.prop(params_pg, "cols")
-        row.prop(params_pg, "rows")
-        grid_box.prop(params_pg, "add_greyscale")
+        row.prop(p, "rows")
+        row = grid_box.row(align=True)
+        row.prop(p, "l_top")
+        row.prop(p, "l_bottom")
 
-        base_box = layout.box()
-        base_box.label(text="Base Color")
-        row = base_box.row(align=True)
-        row.prop(params_pg, "saturation")
-        row.prop(params_pg, "brightness")
+        # Groups
+        groups_box = layout.box()
+        groups_box.label(text="Groups")
+        row = groups_box.row()
+        row.template_list("LPC_UL_palette_groups", "", p, "groups", p,
+                          "groups_active", rows=3)
+        col = row.column(align=True)
+        col.operator("lpc.palette_group_add", text="", icon="ADD")
+        col.operator("lpc.palette_group_remove", text="", icon="REMOVE")
+        col.separator()
+        col.operator("lpc.palette_group_move", text="", icon="TRIA_UP").direction = "UP"
+        col.operator("lpc.palette_group_move", text="", icon="TRIA_DOWN").direction = "DOWN"
+
+        group = p.groups[p.groups_active] if 0 <= p.groups_active < len(p.groups) else None
+        if group is not None:
+            col = groups_box.column(align=True)
+            col.prop(group, "chroma")
+            for use_key, key in (("use_l_top", "l_top"), ("use_l_bottom", "l_bottom")):
+                row = col.row(align=True)
+                row.prop(group, use_key, text="")
+                sub = row.row(align=True)
+                sub.active = getattr(group, use_key)
+                sub.prop(group, key)
+
+            # Columns of the selected group
+            cols_box = layout.box()
+            cols_box.label(text="Columns of %s" % group.name)
+            row = cols_box.row()
+            row.template_list("LPC_UL_palette_columns", "", group, "columns",
+                              group, "columns_active", rows=5)
+            col = row.column(align=True)
+            col.operator("lpc.palette_column_add", text="", icon="ADD")
+            col.operator("lpc.palette_column_remove", text="", icon="REMOVE")
+            col.separator()
+            col.operator("lpc.palette_column_move", text="", icon="TRIA_UP").direction = "UP"
+            col.operator("lpc.palette_column_move", text="", icon="TRIA_DOWN").direction = "DOWN"
+            if 0 <= group.columns_active < len(group.columns):
+                column = group.columns[group.columns_active]
+                col = cols_box.column(align=True)
+                row = col.row(align=True)
+                row.prop(column, "hue")
+                row.prop(column, "span")
+                row = col.row(align=True)
+                row.prop(column, "use_chroma", text="")
+                sub = row.row(align=True)
+                sub.active = column.use_chroma
+                sub.prop(column, "chroma")
 
         range_box = layout.box()
         range_box.label(text="Tint / Shade")
         row = range_box.row(align=True)
-        row.prop(params_pg, "tint")
-        row.prop(params_pg, "shade")
+        row.prop(p, "tint")
+        row.prop(p, "shade")
 
         art_box = layout.box()
         art_box.label(text="Artwork")
-        art_box.prop(params_pg, "color_mode")
         row = art_box.row(align=True)
-        row.prop(params_pg, "hue_shift")
-        row.prop(params_pg, "warmth")
+        row.prop(p, "hue_shift")
+        row.prop(p, "warmth")
 
         glob_box = layout.box()
         glob_box.label(text="Globals")
@@ -122,7 +179,14 @@ class LPC_OT_palette_settings(bpy.types.Operator):
         col.prop(context.scene.lpc_globals, "emission_factor")
         col.prop(context.scene.lpc_globals, "clearcoat_roughness")
 
+        layout.label(text="OK keeps painted faces on their colors (asks if unclear).")
+
     def execute(self, context):
+        from ..ops import palette as ops_palette
+
+        _status, message = ops_palette.commit_palette(context, self._backup)
+        if message:
+            self.report({"INFO"}, message)
         return {"FINISHED"}
 
 
@@ -146,8 +210,8 @@ class LPC_UL_presets(bpy.types.UIList):
 
 
 class LPC_MT_presets(bpy.types.Menu):
-    """Preset extras: duplicate, JSON file import/export and the bundled
-    defaults -- tucked away next to the list. (Fix UV Maps is surfaced by the
+    """Preset extras: duplicate, LPC file import/export (palette and/or
+    presets) and the bundled defaults -- tucked away next to the list. (Fix UV Maps is surfaced by the
     footer warning only when a mesh actually needs it.)"""
 
     bl_idname = "LPC_MT_presets"
@@ -157,8 +221,8 @@ class LPC_MT_presets(bpy.types.Menu):
         layout = self.layout
         layout.operator("lpc.preset_duplicate", icon="DUPLICATE")
         layout.separator()
-        layout.operator("lpc.preset_import_json", text="Import", icon="IMPORT")
-        layout.operator("lpc.preset_export_json", text="Export", icon="EXPORT")
+        layout.operator("lpc.file_import", text="Import Palette / Presets...", icon="IMPORT")
+        layout.operator("lpc.file_export", text="Export Palette / Presets...", icon="EXPORT")
         layout.separator()
         layout.operator("lpc.preset_load_defaults", icon="PRESET")
         layout.separator()
@@ -282,6 +346,8 @@ class LPC_PT_footer(bpy.types.Panel):
         export_sub.alert = export_exporter.is_export_dirty(context.scene)
         export_sub.operator("lpc.export", text="", icon="EXPORT")
 
+        if context.scene.lpc_palette_params.legacy_notice:
+            layout.label(text="Palette converted from LPC 1.x", icon="INFO")
         layout.operator(
             "lpc.palette_settings", text="Settings...", icon="PREFERENCES"
         )

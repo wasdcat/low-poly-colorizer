@@ -56,6 +56,7 @@ PREFIX = "lpc_"
 # Picker: frame around the palette grid.
 PICKER_FRAME_COLOR = (0.1, 0.1, 0.1, 1.0)  # RGBA, dark grey
 PICKER_FRAME_WIDTH = 3.0  # frame thickness in pixels (float; scaled by ui_scale)
+PICKER_CELL_LINE = 1.0  # line between cells in pixels (scaled by ui_scale, drawn only)
 
 # Picker: marker for the CURRENTLY picked cell (the x/y already stored in
 # lpc_picker_result) so the overlay opens showing which cell is active. An
@@ -63,19 +64,9 @@ PICKER_FRAME_WIDTH = 3.0  # frame thickness in pixels (float; scaled by ui_scale
 # backing line so it reads on any palette color underneath.
 PICKER_SELECTED_COLOR = (1.0, 0.55, 0.1, 1.0)  # RGBA, amber
 
-# Default palette parameters for a fresh file. These seed the
-# LPC_PaletteParams defaults (picker/interface.py); the user can still change
-# them per scene in the Settings dialog.
-DEFAULT_PALETTE_COLS = 16          # hue columns (excluding the greyscale column)
-DEFAULT_PALETTE_ROWS = 9
-DEFAULT_PALETTE_ADD_GREYSCALE = True
-DEFAULT_PALETTE_SATURATION = 1.0   # middle row (base color)
-DEFAULT_PALETTE_BRIGHTNESS = 1.0   # middle row (base color)
-DEFAULT_PALETTE_TINT = 0.8         # how far the top row goes toward white
-DEFAULT_PALETTE_SHADE = 0.8        # how far the bottom row goes toward black
-DEFAULT_PALETTE_COLOR_MODE = "HSV" # color space: 'HSV' or 'OKLCH'
-DEFAULT_PALETTE_HUE_SHIFT = 0.0    # highlight/shadow temperature shift (-1..1)
-DEFAULT_PALETTE_WARMTH = 0.0       # global temperature bias (-1..1)
+# The palette of a fresh file comes from the bundled template
+# model.templates.DEFAULT_TEMPLATE (addon/templates/*.json); the defaults of
+# its individual values live in model/palette.py (DEFAULT_*).
 
 # Default global material values for a fresh file (seed LPC_Globals,
 # model/presets.py); editable per scene in the Settings dialog.

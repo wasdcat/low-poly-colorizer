@@ -1,4 +1,4 @@
-﻿# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
+# SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # This file is part of Low Poly Colorizer (LPC). <https://github.com/wasdcat/low-poly-colorizer>
@@ -19,8 +19,12 @@ Controls:
       (CANCELLED), `lpc_picker_result` stays unchanged.
     - Mouse wheel: zoom, centered on the cursor.
     - Middle mouse button + drag: pan.
+
+Palette groups are drawn with a gap between them and their name above;
+the hovered cell's "Group · Column n" label shows below the grid.
 """
 
+import blf
 import bpy
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -33,6 +37,9 @@ from . import interface
 ZOOM_FACTOR = 1.1
 ZOOM_MIN = 0.25
 ZOOM_MAX = 4.0
+GROUP_GAP = 0.5        # gap between palette groups, in cells
+LABEL_SIZE = 12        # font size of headings / hover label (scaled by ui_scale)
+LABEL_COLOR = (0.9, 0.9, 0.9, 1.0)
 
 
 class LPC_OT_modal_palette_picker(bpy.types.Operator):
@@ -69,21 +76,25 @@ class LPC_OT_modal_palette_picker(bpy.types.Operator):
 
         self.params = interface.params_from_scene(context.scene)
         self.cols, self.rows = palette.cell_count(self.params)
+        # Group headings: (name, first grid column), empty groups skipped.
+        self.groups = [(name, start) for name, start, n
+                       in palette.group_ranges(self.params) if n > 0]
+        group_starts = tuple(start for _name, start in self.groups if start > 0)
 
         ui_scale = context.preferences.system.ui_scale
         swatch_size = 24.0
-        grid_w = self.cols * swatch_size * ui_scale
-        grid_h = self.rows * swatch_size * ui_scale
+        self.geo = geometry.PickerGeometry(
+            origin_x=0.0, origin_y=0.0, swatch_size=swatch_size,
+            ui_scale=ui_scale, group_starts=group_starts, gap=GROUP_GAP,
+        )
+        grid_w = self.geo.grid_width_cells(self.cols) * self.geo.cell_size
+        grid_h = self.rows * self.geo.cell_size
 
         # Open centered in the viewport so the grid is always fully visible
         # regardless of the click position (not hidden under a docked
         # sidebar).
-        self.geo = geometry.PickerGeometry(
-            origin_x=(self.region.width - grid_w) / 2.0,
-            origin_y=(self.region.height - grid_h) / 2.0,
-            swatch_size=swatch_size,
-            ui_scale=ui_scale,
-        )
+        self.geo.origin_x = (self.region.width - grid_w) / 2.0
+        self.geo.origin_y = (self.region.height - grid_h) / 2.0
         self.hover = None
         # The cell the brush currently names (lpc_picker_result), marked as a
         # persistent highlight so the picker opens on the active cell. None if
@@ -195,9 +206,14 @@ class LPC_OT_modal_palette_picker(bpy.types.Operator):
         shader.uniform_float("color", (0.05, 0.05, 0.05, 0.85))
         bg_batch.draw(shader)
 
+        line = max(1.0, round(constants.PICKER_CELL_LINE * self.geo.ui_scale))
         for y in range(rows):
             for x in range(cols):
                 x0, y0, x1, y1 = self.geo.cell_rect(x, y)
+                # Draw-only inset: the dark background shows through as a
+                # fine line between cells. Hit-testing keeps the full cell.
+                x1 -= line
+                y1 -= line
                 verts = ((x0, y0), (x1, y0), (x1, y1), (x0, y1))
                 color = palette.color_at(x, y, self.params)
                 batch = batch_for_shader(shader, "TRI_FAN", {"pos": verts})
@@ -216,6 +232,23 @@ class LPC_OT_modal_palette_picker(bpy.types.Operator):
             self._outline_cell(self.hover, (1.0, 1.0, 1.0, 1.0), 2.0)
 
         gpu.state.blend_set("NONE")
+        self._draw_labels(bx0, by0, by1)
+
+    def _draw_labels(self, bx0, by0, by1):
+        """Group headings above the grid, the hovered cell's name below."""
+        font = 0
+        size = LABEL_SIZE * self.geo.ui_scale
+        blf.size(font, size)
+        blf.color(font, *LABEL_COLOR)
+        fw = constants.PICKER_FRAME_WIDTH * self.geo.ui_scale
+        for name, start in self.groups:
+            x, _y = self.geo.cell_to_screen(start, 0)
+            blf.position(font, x, by1 + fw + size * 0.5, 0)
+            blf.draw(font, name)
+        if self.hover is not None:
+            text = palette.cell_label(self.params, *self.hover)
+            blf.position(font, bx0, by0 - fw - size * 1.5, 0)
+            blf.draw(font, text)
 
     def _outline_cell(self, cell, color, width):
         """Stroke the outline of `cell` in `color` at `width` pixels (used for

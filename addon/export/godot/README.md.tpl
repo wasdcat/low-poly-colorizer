@@ -118,8 +118,19 @@ $Lamp.light_color = {{prefix_pascal}}PaletteColorResource.color_at(2, 3)
 The colors are not recomputed in GDScript and not read back from the texture:
 the add-on writes every cell's color into the script as the `PALETTE` constant,
 from the same computation that fills `{{prefix}}palette.png`. So they follow
-every palette setting (color mode, hue shift, warmth), and no texture or
+every palette setting (groups, columns, hue shift, warmth), and no texture or
 import setting is involved. The shader samples the 8-bit PNG, so the two differ
 by less than 1/255 — use the result for display, not for equality comparisons.
 The palette's parameters are there as `PALETTE_*` constants for your own code to
 build on. Re-export after changing the palette to refresh all of it.
+
+In the Inspector, `palette_cell_x` is a drop-down of the palette's columns by
+name ("Nature · Moss"); the resource still saves the number. The groups and
+names are also there for code: `PALETTE_GROUPS` (name, first column, column
+count per group) and `PALETTE_COLUMN_NAMES` (one label per column).
+
+**Reordering columns shifts the numbers.** If you add, remove or move palette
+columns in the add-on, a saved `palette_cell_x` names a different column after
+the next export — the same as with preset positions. The add-on remaps the
+painted meshes; your `.tres` files keep their numbers, so check them after such
+a change.

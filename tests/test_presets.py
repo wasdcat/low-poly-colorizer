@@ -46,7 +46,7 @@ class TestPresets(unittest.TestCase):
             ops_presets.make_preset("Solid", roughness=0.8, metallic=0.0),
             ops_presets.make_preset("Gold", roughness=0.25, metallic=1.0, emission=0.1),
         ]
-        json_text = ops_presets.presets_to_json(orig)
+        json_text = json.dumps({"version": 1, "presets": ops_presets.rounded_presets(orig)})
         parsed = ops_presets.presets_from_json(json_text)
         self.assertEqual(len(parsed), 2)
         self.assertEqual(parsed[0]["name"], "Solid")
