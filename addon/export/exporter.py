@@ -17,7 +17,16 @@ braces in the body are left intact (so shader code survives).
 Alongside the rendered templates, `write_textures` writes the palette + the
 preset LUT as PNGs -- binary data the `.tpl` text-substitution mechanism
 can't carry, so it's a separate step in `LPC_OT_export.execute`, not another
-template.
+template. The palette also travels as text (`palette_colors_gdscript`), for
+code that needs a cell's color without sampling the texture.
+
+Every exported file can carry a STABLE ID (`stable_uid`): derived from its
+output filename alone, so re-exporting -- into the same project or a fresh
+one, from any machine -- always writes the same ID for the same file and
+references by ID keep resolving. `render_set` puts one `uid_<name>`
+placeholder per file of the set into the context; a sidecar template
+(`<file>.import.tpl`, `<file>.uid.tpl`) shares the ID of the file it
+describes, which is how a texture written by `write_textures` gets one too.
 
 Nothing here is Godot-specific -- the only thing that knows about a particular
 engine is its template folder + its registry entry. The render context is the
@@ -27,6 +36,7 @@ same `{{prefix}}` placeholder as the filenames, so they stay in sync whatever
 the active namespace prefix is.
 """
 
+import hashlib
 import os
 import re
 import unicodedata
@@ -55,12 +65,51 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 # / {{preset_lut_image_filename}} placeholders (build_context), so the names
 # live here in one place and stay in sync between the written PNGs and the
 # ExtResource paths pointing at them. Prefixed via constants.PREFIX like every
-# other exported filename.
+# other exported filename. Their `.import` sidecar templates are named after
+# them ({{prefix}}palette.png.import.tpl), so a rename must touch both.
 PALETTE_IMAGE_FILENAME = constants.PREFIX + "palette.png"
 PRESET_LUT_IMAGE_FILENAME = constants.PREFIX + "preset_lut.png"
 
 def _fmt(value):
     return repr(round(float(value), 6))
+
+
+def _lit(value):
+    """A float literal any C-like target parses (GDScript, GLSL, ...):
+    fixed-point, never scientific notation (`repr` would turn 1e-7 into
+    "1e-07"), at most 6 decimals, but always with a decimal point so it reads
+    as a float, not an int ("1.0", not "1")."""
+    text = f"{float(value):.6f}".rstrip("0")
+    if text.endswith("."):
+        text += "0"
+    return "0.0" if text == "-0.0" else text
+
+
+def _palette_rows(params):
+    """`model_palette.color_at` for every cell, as one list of (r, g, b) per
+    palette row, row 0 first -- the SAME (x, y) cell numbering the picker,
+    the per-face UVs (`model/faces.palette_uv`) and the singlecolor instance
+    uniforms use, so a target indexes it as `[y * cols + x]` with no flip.
+    Alpha is dropped: the palette is always opaque.
+
+    Values are the raw `color_at` output, with no sRGB<->linear conversion --
+    the same numbers `build_pixels` writes into the "Non-Color" palette PNG
+    the shaders sample, so both agree up to the PNG's 8-bit rounding."""
+    cols, rows = model_palette.cell_count(params)
+    return [
+        [model_palette.color_at(x, y, params)[:3] for x in range(cols)]
+        for y in range(rows)
+    ]
+
+
+def _palette_colors_gdscript(params):
+    """The palette as the body of a GDScript `PackedColorArray` literal, one
+    palette row per line, so the generated file reads like the picker grid.
+    Index `y * cols + x`, see `_palette_rows`."""
+    return ",\n".join(
+        "\t" + ", ".join(f"Color({_lit(r)}, {_lit(g)}, {_lit(b)})" for r, g, b in row)
+        for row in _palette_rows(params)
+    )
 
 
 def _preset_legend(scene):
@@ -189,6 +238,13 @@ def build_context(scene):
         "palette_color_mode": params.get("color_mode", "HSV"),
         "palette_hue_shift": _fmt(params.get("hue_shift", 0.0)),
         "palette_warmth": _fmt(params.get("warmth", 0.0)),
+        # Every cell's color as the body of a GDScript PackedColorArray
+        # literal, index y * palette_cols + x (y in the picker's numbering,
+        # row 0 = lightest) -- for code that needs a cell's color without the
+        # shader (the exported resource script's color_at). Straight from
+        # model_palette.color_at, so it follows every palette parameter
+        # (color mode, hue shift, warmth, ...) with nothing to port.
+        "palette_colors_gdscript": _palette_colors_gdscript(params),
         "palette_image_filename": PALETTE_IMAGE_FILENAME,
         "preset_lut_image_filename": PRESET_LUT_IMAGE_FILENAME,
         "preset_legend": _preset_legend(scene),
@@ -269,16 +325,78 @@ def _strip_tpl(name):
     return name[:-4] if name.endswith(".tpl") else name
 
 
+# Text form of a stable ID: Godot's ResourceUID encoding -- a non-negative
+# 63-bit integer in base 34, digits 'a'..'y' then '0'..'8' (no 'z', no '9'),
+# most significant first, prefixed "uid://". Verified against
+# ResourceUID.id_to_text in Godot 4.8 (0 -> uid://a, 34 -> uid://ba,
+# 2**63 - 1 -> uid://d4n4ub6itg400).
+_UID_ALPHABET = "abcdefghijklmnopqrstuvwxy012345678"
+
+# A template whose output name ends in one of these describes ANOTHER file
+# (Godot: texture.png.import, script.gd.uid) and carries that file's ID.
+SIDECAR_SUFFIXES = (".import", ".uid")
+
+
+def stable_uid(filename):
+    """The stable ID of the exported file `filename` ("lpc_palette.png"), in
+    Godot's `uid://...` text form.
+
+    A pure function of the output filename -- which already includes the
+    namespace prefix -- so every export writes the same ID for the same file,
+    on any machine, into any project: re-exporting never orphans a reference,
+    and two LPC exports with different prefixes never collide. Two with the
+    SAME prefix in one project would; they cannot coexist anyway (their
+    GDScript class_names clash first, see constants.PREFIX)."""
+    digest = hashlib.sha256(("lpc-export:" + filename).encode("utf-8")).digest()
+    n = int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+    text = ""
+    while True:
+        n, digit = divmod(n, len(_UID_ALPHABET))
+        text = _UID_ALPHABET[digit] + text
+        if n == 0:
+            return "uid://" + text
+
+
+def _uid_subject(name):
+    """The file a (template or output) name is about: itself, or -- for a
+    sidecar -- the file it sits next to."""
+    for suffix in SIDECAR_SUFFIXES:
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def uid_context(template_entries, context):
+    """One `uid_<name>` placeholder per file the set exports, keyed by the
+    template's own name with the prefix placeholder and punctuation folded
+    out ("{{prefix}}palette.png.import.tpl" -> uid_palette_png), so the key a
+    template refers to does not depend on the active prefix -- while the ID
+    itself does, being the `stable_uid` of the real output filename.
+
+    Sidecars map onto their subject, so a texture that `write_textures`
+    writes outside the template mechanism gets its key as soon as the set has
+    an `.import` template for it."""
+    uids = {}
+    for entry in template_entries:
+        subject = _uid_subject(_strip_tpl(entry))
+        key = "uid_" + re.sub(r"\W+", "_", subject.replace("{{prefix}}", "")).strip("_")
+        uids[key] = stable_uid(_render(subject, context))
+    return uids
+
+
 def render_set(set_id, out_dir, context):
     """Render every `.tpl` in the set's folder into `out_dir`. Returns the list
-    of written filenames. Raises ValueError for an unknown set, OSError on IO."""
+    of written filenames. Raises ValueError for an unknown set, OSError on IO.
+
+    `context` is extended by `uid_context` for the set's own files before
+    rendering, so templates can refer to each other by stable ID."""
     tdir = registry.template_dir(set_id)
     if tdir is None or not os.path.isdir(tdir):
         raise ValueError(f"unknown export template set: {set_id!r}")
+    entries = sorted(e for e in os.listdir(tdir) if e.endswith(".tpl"))
+    context = {**context, **uid_context(entries, context)}
     written = []
-    for entry in sorted(os.listdir(tdir)):
-        if not entry.endswith(".tpl"):
-            continue
+    for entry in entries:
         with open(os.path.join(tdir, entry), "r", encoding="utf-8") as f:
             text = f.read()
         # The template FILENAME carries the same {{prefix}} placeholder as its
