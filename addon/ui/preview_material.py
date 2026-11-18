@@ -234,11 +234,28 @@ def _refill_image(image, pixels, width, height):
     image.pack()
 
 
+def _new_palette_image(cols, rows):
+    image = bpy.data.images.new(
+        _PALETTE_IMAGE_NAME, width=cols, height=rows,
+        alpha=True, float_buffer=False,
+    )
+    image[_PALETTE_MANAGED_KEY] = 1
+    image.use_fake_user = True
+    image.colorspace_settings.name = "sRGB"
+    return image
+
+
 def ensure_palette_image(scene):
-    """The palette as a texture (cols x rows, Non-Color, Closest-sampled) --
-    created if missing, resized + refilled to match the current palette
+    """The palette as a texture (cols x rows, sRGB 8-bit, Closest-sampled)
+    -- created if missing, resized + refilled to match the current palette
     params otherwise. Shared by this module's node graph and the Godot
-    export (export/exporter.py) -- both must render identical colors."""
+    export (export/exporter.py) -- both must render identical colors.
+
+    Color space: `color_at` yields gamma-encoded sRGB, so the image is
+    declared "sRGB" and Blender decodes it to linear when shading -- exactly
+    what Godot does with the exported PNG via `source_color`. A byte buffer
+    (not float) keeps the preview on the same 8-bit values the PNG holds;
+    the preset LUT, which is DATA, stays Non-Color float."""
     from ..model import palette as model_palette
     from ..picker import interface as picker_interface
 
@@ -246,13 +263,7 @@ def ensure_palette_image(scene):
     pixels, cols, rows = model_palette.build_pixels(params)
     image = _find_managed_image(_PALETTE_MANAGED_KEY)
     if image is None:
-        image = bpy.data.images.new(
-            _PALETTE_IMAGE_NAME, width=cols, height=rows,
-            alpha=True, float_buffer=True,
-        )
-        image[_PALETTE_MANAGED_KEY] = 1
-        image.use_fake_user = True
-        image.colorspace_settings.name = "Non-Color"
+        image = _new_palette_image(cols, rows)
     _refill_image(image, pixels, cols, rows)
     return image
 

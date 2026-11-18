@@ -1,0 +1,201 @@
+{
+  "version": 2,
+  "name": "Industrial Planet",
+  "palette": {
+    "rows": 7,
+    "l_top": 0.9,
+    "l_bottom": 0.3,
+    "tint": 0.5,
+    "shade": 0.6,
+    "hue_shift": 0.35,
+    "warmth": 0.05,
+    "groups": [
+      {
+        "name": "Neutral",
+        "chroma": 0.0,
+        "l_top": 0.95,
+        "l_bottom": 0.28,
+        "columns": [
+          {
+            "id": "grey",
+            "name": "Grey",
+            "hue": 0.0,
+            "chroma": 0.0
+          },
+          {
+            "id": "steel",
+            "name": "Steel",
+            "hue": 250.0,
+            "chroma": 0.02
+          },
+          {
+            "id": "concrete",
+            "name": "Concrete",
+            "hue": 75.0,
+            "chroma": 0.015
+          }
+        ]
+      },
+      {
+        "name": "Terrain",
+        "chroma": 0.05,
+        "columns": [
+          {
+            "id": "basalt",
+            "name": "Basalt",
+            "hue": 40.0,
+            "chroma": 0.02
+          },
+          {
+            "id": "rock",
+            "name": "Rock",
+            "hue": 55.0,
+            "chroma": 0.035
+          },
+          {
+            "id": "oxide",
+            "name": "Oxide",
+            "hue": 35.0,
+            "chroma": 0.085
+          },
+          {
+            "id": "dust",
+            "name": "Dust",
+            "hue": 70.0,
+            "chroma": 0.055
+          },
+          {
+            "id": "ochre",
+            "name": "Ochre",
+            "hue": 80.0,
+            "chroma": 0.085
+          },
+          {
+            "id": "lichen",
+            "name": "Lichen",
+            "hue": 120.0,
+            "chroma": 0.05
+          }
+        ]
+      },
+      {
+        "name": "Snow & Ice",
+        "chroma": 0.03,
+        "l_top": 0.97,
+        "l_bottom": 0.5,
+        "columns": [
+          {
+            "id": "snow",
+            "name": "Snow",
+            "hue": 250.0,
+            "chroma": 0.015
+          },
+          {
+            "id": "ice",
+            "name": "Ice",
+            "hue": 220.0,
+            "chroma": 0.05
+          },
+          {
+            "id": "haze",
+            "name": "Haze",
+            "hue": 270.0,
+            "chroma": 0.04
+          }
+        ]
+      },
+      {
+        "name": "Industry",
+        "chroma": 0.14,
+        "columns": [
+          {
+            "id": "hazard",
+            "name": "Hazard",
+            "hue": 92.0,
+            "chroma": 0.15
+          },
+          {
+            "id": "safety",
+            "name": "Safety",
+            "hue": 52.0,
+            "chroma": 0.16
+          },
+          {
+            "id": "signal",
+            "name": "Signal",
+            "hue": 25.0,
+            "chroma": 0.17
+          },
+          {
+            "id": "cobalt",
+            "name": "Cobalt",
+            "hue": 258.0,
+            "chroma": 0.12
+          },
+          {
+            "id": "teal",
+            "name": "Teal",
+            "hue": 185.0,
+            "chroma": 0.09
+          },
+          {
+            "id": "copper",
+            "name": "Copper",
+            "hue": 45.0,
+            "chroma": 0.1
+          },
+          {
+            "id": "brass",
+            "name": "Brass",
+            "hue": 85.0,
+            "chroma": 0.09
+          }
+        ]
+      },
+      {
+        "name": "Energy",
+        "chroma": 0.19,
+        "l_top": 0.91,
+        "l_bottom": 0.45,
+        "columns": [
+          {
+            "id": "volt",
+            "name": "Volt",
+            "hue": 100.0,
+            "chroma": 0.18
+          },
+          {
+            "id": "sodium",
+            "name": "Sodium",
+            "hue": 58.0,
+            "chroma": 0.18
+          },
+          {
+            "id": "plasma",
+            "name": "Plasma",
+            "hue": 205.0,
+            "chroma": 0.15
+          },
+          {
+            "id": "neon",
+            "name": "Neon",
+            "hue": 340.0,
+            "chroma": 0.2
+          },
+          {
+            "id": "acid",
+            "name": "Acid",
+            "hue": 135.0,
+            "chroma": 0.2
+          },
+          {
+            "id": "ion",
+            "name": "Ion",
+            "hue": 295.0,
+            "chroma": 0.18
+          }
+        ]
+      }
+    ]
+  }
+}

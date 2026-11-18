@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 from model import faces
 from model import palette as P
 from model import remap as R
-from test_palette_groups import _classic_params, _stylized_palette
+from test_palette_groups import _stylized_palette, _wheel_palette
 
 
 def _ids(palette):
@@ -69,17 +69,7 @@ class TestAutomatic(unittest.TestCase):
         self.assertEqual(plan.automatic[(2, 4)], (2, 4))
         self.assertEqual(plan.automatic[(3, 0)], (4, 0))   # Warm moves right
 
-    def test_classic_cols_change_keeps_equal_hues(self):
-        old = P.palette_from_params(_classic_params(cols=16))
-        new = P.palette_from_params(_classic_params(cols=8))
-        used = {(0, 0): 3, (3, 4): 2, (2, 4): 5}           # grey, hue 2/16, hue 1/16
-        plan = R.plan_remap(old, new, used)
-        self.assertEqual(plan.automatic, {(0, 0): (0, 0), (3, 4): (2, 4)})
-        self.assertEqual([row.old_cell for row in plan.table], [(2, 4)])
-        self.assertEqual(plan.affected_faces, 5)
 
-
-class TestTable(unittest.TestCase):
     def setUp(self):
         self.old = _stylized_palette()
 
@@ -123,7 +113,7 @@ class TestTable(unittest.TestCase):
         self.assertEqual(row.suggestion[0], 0)             # still Grau
 
     def test_classic_to_stylized(self):
-        old = P.palette_from_params(_classic_params(color_mode="OKLCH"))
+        old = _wheel_palette()
         plan = R.plan_remap(old, self.old, {(0, 0): 1, (0, 8): 1})
         self.assertEqual(plan.automatic, {})
         rows = {row.old_cell: row for row in plan.table}

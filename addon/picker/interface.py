@@ -29,9 +29,8 @@ live=False)` / the suppression flag.
 The palette lives in `scene.lpc_palette_params` (`LPC_PaletteParams`):
 groups of columns plus the global values. `palette_from_props` /
 `write_palette` convert between the properties and the layer-1 dict. A
-scene whose palette was never written (`initialized` False) reads as
-`fallback_palette`: converted from the LPC 1.x values the file still stores,
-or the default template for a file without them.
+scene whose palette was never written (`initialized` False) reads as the
+default template (`default_palette`).
 """
 
 try:
@@ -140,18 +139,33 @@ def refresh_palette_consumers(context):
     geometry_nodes.update_lpc_geo_node_group(context.scene)
 
 
-def _column_preview_get(self):
-    """Middle cell of this column in the current palette (display only)."""
+def _column_cell(self, where):
+    """Cell of this column's ramp in the current palette (display only):
+    where = "first" | "middle" | "last" -- over the whole ramp, i.e. both
+    grid columns with span 2."""
     try:
         pal = params_from_scene(bpy.context.scene)
         rows = pal["rows"]
         for x, (column, _part) in enumerate(palette.grid_columns(pal)):
             if column["id"] == self.column_id:
-                k = (column.get("span", 1) * rows) // 2
+                cells = column.get("span", 1) * rows
+                k = {"first": 0, "middle": cells // 2, "last": cells - 1}[where]
                 return palette.color_at(x + k // rows, k % rows, pal)
     except Exception:
         pass
     return (0.0, 0.0, 0.0, 1.0)
+
+
+def _column_preview_first_get(self):
+    return _column_cell(self, "first")
+
+
+def _column_preview_get(self):
+    return _column_cell(self, "middle")
+
+
+def _column_preview_last_get(self):
+    return _column_cell(self, "last")
 
 
 if bpy is not None:
@@ -187,9 +201,19 @@ if bpy is not None:
             update=_palette_changed,
         )
         preview_color: bpy.props.FloatVectorProperty(
-            name="Preview", subtype="COLOR", size=4, min=0.0, max=1.0,
+            name="Preview", subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0,
             get=_column_preview_get,  # derived, never stored
             description="Middle color of this column",
+        )
+        preview_first: bpy.props.FloatVectorProperty(
+            name="Preview First", subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0,
+            get=_column_preview_first_get,  # derived, never stored
+            description="First (lightest) color of this column",
+        )
+        preview_last: bpy.props.FloatVectorProperty(
+            name="Preview Last", subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0,
+            get=_column_preview_last_get,  # derived, never stored
+            description="Last (darkest) color of this column",
         )
 
     class LPC_PaletteGroup(bpy.types.PropertyGroup):
@@ -227,10 +251,9 @@ if bpy is not None:
         columns_active: bpy.props.IntProperty(name="Active Column", default=0, min=0)
 
     class LPC_PaletteParams(bpy.types.PropertyGroup):
-        """The palette, project-wide (Scene). LPC 1.x stored cols /
-        add_greyscale / saturation / brightness / color_mode here too; they
-        stay in old files as unregistered values, read once by
-        `fallback_palette`."""
+        """The palette, project-wide (Scene). The inherited `name` is the
+        palette's display name (from its template or LPC file; shown in the
+        Settings dialog and on the exported cheatsheet)."""
 
         groups: bpy.props.CollectionProperty(type=LPC_PaletteGroup)
         groups_active: bpy.props.IntProperty(name="Active Group", default=0, min=0)
@@ -278,12 +301,7 @@ if bpy is not None:
         initialized: bpy.props.BoolProperty(
             name="Initialized", default=False,
             description="The palette has been written into this scene "
-            "(from a template or converted from LPC 1.x)",
-        )
-        legacy_notice: bpy.props.BoolProperty(
-            name="Converted from LPC 1.x", default=False,
-            description="The palette was converted from an LPC 1.x file; "
-            "its colors may differ from before",
+            "(from a template or a file)",
         )
 
 
@@ -303,6 +321,33 @@ def _result_color_get(self):
         return (0.0, 0.0, 0.0, 1.0)
 
 
+# EnumProperty items must outlive the callback (Blender keeps no copy of the
+# strings), so the last list handed out is held here.
+_column_items = []
+
+
+def _result_column_items(self, context):
+    """One item per grid column, value = x, named like the picker hover
+    label / the Godot `palette_cell_x` drop-down ("Nature · Moss")."""
+    global _column_items
+    try:
+        labels = palette.grid_column_labels(params_from_scene(context.scene))
+    except Exception:
+        labels = []
+    _column_items = [(str(x), label, "", x) for x, label in enumerate(labels)]         or [("0", "(no columns)", "", 0)]
+    return _column_items
+
+
+def _result_column_get(self):
+    return max(self.x, 0)
+
+
+def _result_column_set(self, value):
+    # Through `x`, so its update (clamp + live-apply to the selection)
+    # runs exactly as for a manual X edit.
+    self.x = value
+
+
 if bpy is not None:
     class LPC_PickerResult(bpy.types.PropertyGroup):
         """Shared result of all picker variants: the chosen cell (x, y).
@@ -314,16 +359,22 @@ if bpy is not None:
         """
 
         x: bpy.props.IntProperty(name="X", default=0, min=-1, update=_clamp_result_xy)
-        y: bpy.props.IntProperty(name="Y", default=0, min=-1, update=_clamp_result_xy)
+        y: bpy.props.IntProperty(name="Row", default=0, min=-1, update=_clamp_result_xy,
+                                 description="Row of the picked cell (0 = first row)")
+        # The panel's view of `x`: the column by name instead of a number.
+        column: bpy.props.EnumProperty(
+            name="Column", items=_result_column_items,
+            get=_result_column_get, set=_result_column_set,
+            description="Column of the picked cell",
+        )
         color: bpy.props.FloatVectorProperty(
-            name="Color", subtype="COLOR", size=4, min=0.0, max=1.0,
+            name="Color", subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0,
             get=_result_color_get,  # read-only: derived, never stored
             description="Color of the picked palette cell",
-            # NOTE: the swatch never shows the LITERAL colour -- Blender draws
-            # every UI colour button through the scene view transform (AgX by
-            # default), so linear white renders as grey. The stored value is
-            # correct (hover shows it); no property subtype bypasses the view
-            # transform. The modal picker grid shows the true colours.
+            # COLOR_GAMMA: `color_at` returns gamma-encoded sRGB, and this
+            # subtype shows the value as such -- no scene view transform
+            # (AgX), so the swatch matches the modal picker grid. Same for
+            # every other palette swatch (column previews, remap dialog).
         )
 
 
@@ -386,42 +437,6 @@ def _copy_palette(pal):
     return copied
 
 
-def _raw_values(p):
-    """What the file stored under the palette params, unregistered 1.x
-    values included (`IDPropertyGroup`-style `.keys()` / `.get()`)."""
-    try:
-        return {key: p.get(key) for key in p.keys()}
-    except (AttributeError, TypeError):
-        return {}
-
-
-def is_legacy_scene(scene):
-    """True if `scene` was saved by LPC 1.x: it stores 1.x-only palette
-    values, or (when the palette was never changed) the saved file already
-    has presets or painted meshes."""
-    raw = _raw_values(scene.lpc_palette_params)
-    if palette.has_legacy_values(raw):
-        return True
-    data = getattr(bpy, "data", None)
-    if data is None or not data.filepath:
-        return False
-    if len(scene.lpc_presets) > 0:
-        return True
-    from ..model import faces
-
-    return any(faces.INDEX_ATTRIBUTE in mesh.attributes for mesh in data.meshes)
-
-
-def fallback_palette(scene):
-    """The palette of a scene whose palette was never written: its LPC 1.x
-    values converted (missing ones at their 1.x defaults), or the default
-    template for a scene LPC 1.x never touched."""
-    if is_legacy_scene(scene):
-        raw = _raw_values(scene.lpc_palette_params)
-        return palette.palette_from_params(palette.params_from_legacy(raw))
-    return default_palette()
-
-
 def params_from_scene(scene):
     """The scene's palette as a layer-1 palette dict."""
     p = scene.lpc_palette_params
@@ -429,7 +444,7 @@ def params_from_scene(scene):
         pal = palette_from_props(p)
         if _usable(pal):
             return pal
-    return fallback_palette(scene)
+    return default_palette()
 
 
 def new_column_id(p, existing=()):
@@ -486,13 +501,12 @@ def write_palette(p, pal):
 
 
 def ensure_palette_initialized(scene):
-    """Write the fallback palette into a scene that has none yet (opening a
-    1.x file, a new scene). Returns True if it wrote. Must run outside
-    draw callbacks (load handler, timer, operators)."""
+    """Write the default template into a scene that has no palette yet.
+    Returns True if it wrote. Must run outside draw callbacks (load
+    handler, timer, operators)."""
     p = scene.lpc_palette_params
     if p.initialized:
         return False
-    legacy = is_legacy_scene(scene)
-    write_palette(p, fallback_palette(scene))
-    p.legacy_notice = legacy
+    write_palette(p, default_palette())
+    p.name = templates.template_name(templates.DEFAULT_TEMPLATE)
     return True

@@ -3,8 +3,8 @@
   "name": "Classic Color Wheel",
   "palette": {
     "rows": 9,
-    "l_top": 0.94,
-    "l_bottom": 0.22,
+    "l_top": 0.93,
+    "l_bottom": 0.32,
     "tint": 0.8,
     "shade": 0.8,
     "hue_shift": 0.0,
@@ -13,8 +13,8 @@
       {
         "name": "Greyscale",
         "chroma": 0.0,
-        "l_top": 1.0,
-        "l_bottom": 0.0,
+        "l_top": 0.97,
+        "l_bottom": 0.28,
         "columns": [
           {
             "id": "grey",

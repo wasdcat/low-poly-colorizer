@@ -15,7 +15,7 @@ Clicking the **Palette button** (color picker) in the N-Panel opens the color pa
 | **Ⓐ** | **Group**: The palette is organized in groups (e.g. *Neutral*, *Nature*, *Accent*). Each group shows its name as a heading; a small gap separates the groups. |
 | **Ⓑ** | **Columns**: Each column is a hue with its own lightness ramp. A column can span two grid columns—for example a long grey scale with twice as many steps. |
 | **Ⓒ** | **Rows**: Vertical progression from light to dark. Row 0, the lightest, is the bottom row. |
-| **Ⓓ** | **Active Cell & Selection Frame**: Two-tone highlight frame indicating the currently selected cell $(X, Y)$ with instant assignment on click. |
+| **Ⓓ** | **Active Cell & Selection Frame**: Two-tone highlight frame indicating the currently selected cell with instant assignment on click. |
 
 Below the grid, the picker names the cell under the mouse cursor, e.g. *Nature · Moss 3*. The palette's layout and size are set under *Settings…* (see below).
 
@@ -43,7 +43,7 @@ Each preset combines four standardized physical material parameters:
 ### Extended Preset Menu (`▾`)
 
 * **Duplicate**: Creates a 1:1 duplicate of the active preset to quickly iterate on material variations.
-* **Import / Export Palette / Presets**: Saves the palette and the presets to a JSON file and loads them back—ideal for reuse across projects. Checkboxes in the file dialog choose whether the palette, the presets or both are written or taken over. On import, presets with an existing name are updated and new ones are appended; a palette replaces the current one entirely (painted faces follow, see *Painted faces when the palette changes*). Preset files from LPC 1.x can still be imported.
+* **Import / Export Palette / Presets**: Saves the palette and the presets to a JSON file and loads them back—ideal for reuse across projects. Checkboxes in the file dialog choose whether the palette, the presets or both are written or taken over. On import, presets with an existing name are updated and new ones are appended; a palette replaces the current one entirely (painted faces follow, see *Painted faces when the palette changes*).
 * **Load Default Presets**: Adds the four bundled factory presets (*Solid*, *Metallic*, *Clearcoat*, *Emission*) if missing and resets existing presets of the same name to the factory values.
 * **Create Geometry Node Group**: See chapter *Engine Export and Integration*.
 
@@ -53,21 +53,18 @@ Each preset combines four standardized physical material parameters:
 
 Clicking **Settings…** in the N-Panel opens the configuration dialog for the palette and the project-wide shader parameters. Changes are previewed live; *OK* applies them, *Cancel* reverts them.
 
-![Global LPC Settings: palette](../common/images/settings_annotated_1.png)
+The dialog reads top to bottom: first the values of the whole palette, then the groups, then the columns of the selected group, and finally the material values.
+
+![Global LPC Settings](../common/images/settings_annotated.png)
 
 | Area | Description |
 |:---:|:---|
-| **①** | **Palette & Grid**: The **Templates** menu with the bundled templates, the number of rows (*Rows*) and the lightness range (*Lightest* / *Darkest*). |
+| **①** | **Palette**: The palette's name (taken from the template or LPC file, shown on the exported cheatsheet), the **Templates** menu with the bundled templates and the values of the whole palette—number of rows (*Rows*), lightness range (*Lightest* / *Darkest*), color fade toward the ends (*Tint* / *Shade*) and color temperature (*Hue Shift* / *Warmth*, see *Artwork*). |
 | **②** | **Groups**: The list of groups (add, remove, reorder) and the selected group's values: *Chroma* and, optionally, an own lightness range. |
-| **③** | **Columns**: The selected group's columns with a color preview, and the selected column's values: *Hue*, *Span* and, optionally, an own *Chroma*. |
+| **③** | **Columns of …**: The selected group's columns—each with three swatches (first, middle and last color of its ramp) and its name—and the selected column's values: *Hue*, *Span* and, optionally, an own *Chroma*. |
+| **④** | **Material (all presets)**: Values of the shared material that apply to every preset—the global emission multiplier (*Emission Factor*) and the roughness of the clearcoat layer (*Clearcoat Roughness*). They are not part of the palette and change no color. |
 
-![Global LPC Settings: shading, artwork and globals](../common/images/settings_annotated_2.png)
-
-| Area | Description |
-|:---:|:---|
-| **④** | **Tint / Shade**: How much colorfulness fades toward the lightest (*Tint*) and the darkest rows (*Shade*). |
-| **⑤** | **Artwork**: Vertical color temperature drift (**Hue Shift**) and global color temperature (**Warmth**). |
-| **⑥** | **Globals**: Project-wide parameters such as the global emission multiplier (*Emission Factor*) and the base roughness for clearcoat (*Clearcoat Roughness*). |
+*Tint* and *Shade* set how much colorfulness fades toward the lightest (*Tint*) and the darkest rows (*Shade*). Low values keep highlights and shadows colorful—good for a toon look.
 
 ---
 
@@ -75,9 +72,9 @@ Clicking **Settings…** in the N-Panel opens the configuration dialog for the p
 
 The palette consists of **groups**, and each group of **columns**. The order in the picker follows exactly this structure: first the groups, within them their columns.
 
-* **Groups** organize the palette by role. A proven split is *Neutral* (grey and near-neutral tones), *Nature* (muted natural tones for terrain and surroundings) and *Accent* (strong colors for everything gameplay-relevant). A group's *Chroma*—the colorfulness in OKLCH, 0 = grey—applies to all its columns without an own value. Optionally a group gets its own lightness range, for example so its grey reaches almost black without darkening the other colors.
+* **Groups** organize the palette by role. A proven split is *Neutral* (grey and near-neutral tones), *Nature* (muted natural tones for terrain and surroundings) and *Accent* (strong colors for everything gameplay-relevant). A group's *Chroma*—the colorfulness in OKLCH, 0 = grey—applies to all its columns without an own value. Optionally a group gets its own lightness range, for example so grey and steel go darker (rubber, dark metal) or snow never gets dark, without changing the other colors.
 * **Columns** are the actual hues. *Hue* is the hue in degrees (OKLCH), *Chroma* an optional own colorfulness. With *Span 2* a column covers two grid columns: its lightness ramp then runs over twice as many steps, the light half on the left, the dark half on the right.
-* **Rows** apply to the whole palette. *Lightest* and *Darkest* set how light the first and how dark the last row is; the steps in between are spaced evenly in perceived lightness.
+* **Rows** apply to the whole palette. *Lightest* and *Darkest* set how light the first and how dark the last row is (OKLab lightness, default 0.90 and 0.33); the steps in between are spaced evenly in perceived lightness. The palette provides the faces' base color (albedo); how bright they look in the image is up to the lighting. *Darkest* below about 0.3 gives very dark albedo values that hardly any real surface has—dark shadows come from the lighting.
 
 All colors are computed in the perceptually uniform color space **OKLCH**: equal lightness values look equally light across all hues. Yellows keep their sunny character, blues stay clear and shadow steps do not sink into mud.
 
@@ -85,8 +82,12 @@ All colors are computed in the perceptually uniform color space **OKLCH**: equal
 
 **Templates** replaces the palette with a bundled template:
 
-* **Stylized 3D** (default for new files): 22 columns × 5 rows in the groups *Neutral*, *Nature* and *Accent*—calm tones for the surroundings, strong accents for what matters in gameplay.
-* **Classic Color Wheel**: A grey scale plus 16 evenly spaced hues × 9 rows—laid out like the LPC 1.x default palette, computed in OKLCH.
+* **Stylized 3D** (default for new files): 21 columns × 7 rows in the groups *Neutral*, *Nature* and *Accent*—calm tones for the surroundings, strong accents for what matters in gameplay.
+* **Toon Outdoor**: 26 columns × 5 rows of natural colors for toon and low-poly outdoor scenes, in the groups *Ground* (soil, clay, path, sand, rock, stone), *Foliage* (meadow, grass, leaf, moss, pine, sage), *Autumn*, *Wood*, *Water & Sky* (with its own, lighter lightness range) and *Flowers*. Low *Tint* / *Shade* keep highlights and shadows colorful.
+* **Industrial Planet**: 25 columns × 7 rows for a stylized sci-fi industrial world on a barren planet, in the groups *Neutral* (grey, steel, concrete—down to dark rubber), *Terrain* (basalt, rock, rust-red oxide, dust, ochre, lichen), *Snow & Ice* (own light range: snow, ice, haze), *Industry* (hazard yellow, safety orange, signal red, cobalt, teal, copper, brass) and *Energy* (glow colors with their own range 0.91–0.45: Volt, Sodium, Plasma, Neon, Acid, Ion). For glowing signs and markings, use the middle rows of *Energy* with an emission preset.
+* **Classic Color Wheel**: A grey scale plus 16 evenly spaced hues × 9 rows—a classic color wheel, computed in OKLCH.
+
+All templates stay within a plausible albedo range, with no pure black or white.
 
 Templates are JSON files in the same format as *Export Palette / Presets*, so an exported palette can be carried into another project at any time.
 
@@ -103,7 +104,7 @@ Color changes (hue, chroma, lightness, tint/shade, artwork) move no cells; faces
 
 ## Artwork: Color Theory & Shading Harmony
 
-Professional 3D art and painting rarely use pure lightness steps; they work with **color temperature contrasts** (warm sunlight casts cool shadows). The **Artwork** section offers two controls for this:
+Professional 3D art and painting rarely use pure lightness steps; they work with **color temperature contrasts** (warm sunlight casts cool shadows). The **Palette** box of the Settings dialog offers two controls for this:
 
 * **Hue Shift (-1.0 to +1.0)**: Simulates atmospheric lighting.
   * *Positive values (0.3 to 0.5)*: Highlights drift toward the warm axis (yellow/gold), shadows toward the cool axis (blue/violet)—ideal for sunny outdoor scenes.
@@ -114,19 +115,9 @@ Professional 3D art and painting rarely use pure lightness steps; they work with
 ### Recommended Settings (Recipes)
 
 * **Stylized 3D (Outdoor / Sunlight)**: `Hue Shift: 0.5`, `Warmth: 0.2`—the values of the *Stylized 3D* template.
+* **Toon outdoor scene**: `Hue Shift: 0.6`, `Warmth: 0.15`, plus `Tint: 0.45`, `Shade: 0.55`—the values of the *Toon Outdoor* template.
+* **Barren sci-fi industrial world**: `Hue Shift: 0.35`, `Warmth: 0.05`—the values of the *Industrial Planet* template.
 * **Night / Sci-Fi / Moonlight**: `Hue Shift: -0.35`, `Warmth: -0.25`.
 * **Neutral**: `Hue Shift: 0.0`, `Warmth: 0.0`.
 
 A level's overall mood belongs in the engine's lighting and post-processing instead—the palette stays the same.
-
----
-
-## Upgrading from LPC 1.x
-
-LPC 2.0 only knows the model of groups and columns. When you open a file saved with LPC 1.x, LPC converts its palette once:
-
-* The greyscale column becomes the group *Greyscale* (still white to black), the color wheel the group *Color Wheel* with the same hues. The grid keeps its size, **every painted face keeps its cell**.
-* *Saturation* becomes the chroma of the *Color Wheel* group, *Brightness* its lightness range. The *Color Mode* switch is gone: all palettes are computed in OKLCH.
-* **Colors may change.** Palettes in the former default mode *HSV* look visibly different (different saturation and lightness per hue); palettes in *OKLCH* mode stay practically the same in their hue columns.
-
-After the conversion, the N-Panel and the Settings dialog point it out until you close the note with *Dismiss*. If you need the old colors exactly, stay on LPC 1.2 for that project.

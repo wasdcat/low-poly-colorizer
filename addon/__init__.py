@@ -58,7 +58,6 @@ classes = (
     ops_palette.LPC_OT_palette_column_remove,
     ops_palette.LPC_OT_palette_column_move,
     ops_palette.LPC_OT_palette_load_template,
-    ops_palette.LPC_OT_palette_dismiss_notice,
     ops_palette.LPC_UL_remap_rows,
     ops_palette.LPC_UL_palette_groups,
     ops_palette.LPC_UL_palette_columns,
@@ -75,9 +74,8 @@ classes = (
 
 
 def _init_palettes():
-    """Write the palette into every scene that has none yet: an LPC 1.x
-    file's values are converted (same grid, painted faces keep their
-    cells), anything else gets the default template. Idempotent.
+    """Write the default template into every scene that has no palette
+    yet. Idempotent.
 
     NOTE: like the preset seeding, a deliberate exception to "no load
     handlers" (Invariant 3): it INITIALISES primary user data once."""

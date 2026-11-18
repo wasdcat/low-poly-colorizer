@@ -1,7 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-import json
 import unittest
 import sys
 from pathlib import Path
@@ -41,13 +40,12 @@ class TestPresets(unittest.TestCase):
         self.assertIn("Clearcoat", names)
         self.assertIn("Emission", names)
 
-    def test_json_roundtrip(self):
+    def test_list_roundtrip(self):
         orig = [
             ops_presets.make_preset("Solid", roughness=0.8, metallic=0.0),
             ops_presets.make_preset("Gold", roughness=0.25, metallic=1.0, emission=0.1),
         ]
-        json_text = json.dumps({"version": 1, "presets": ops_presets.rounded_presets(orig)})
-        parsed = ops_presets.presets_from_json(json_text)
+        parsed = ops_presets.presets_from_list(ops_presets.rounded_presets(orig))
         self.assertEqual(len(parsed), 2)
         self.assertEqual(parsed[0]["name"], "Solid")
         self.assertEqual(parsed[0]["roughness"], 0.8)
@@ -55,19 +53,6 @@ class TestPresets(unittest.TestCase):
         self.assertEqual(parsed[1]["metallic"], 1.0)
 
     def test_presets_validation(self):
-        # Invalid JSON
-        with self.assertRaises(ValueError):
-            ops_presets.presets_from_json("invalid json")
-
-        # Wrong version
-        bad_ver = json.dumps({"version": 99, "presets": []})
-        with self.assertRaises(ValueError):
-            ops_presets.presets_from_json(bad_ver)
-
-        # Missing presets field
-        with self.assertRaises(ValueError):
-            ops_presets.presets_from_json(json.dumps({"version": 1}))
-
         # Clamping out-of-range values
         raw = [{"name": "Clamped", "roughness": 1.5, "metallic": -0.5}]
         validated = ops_presets.presets_from_list(raw)

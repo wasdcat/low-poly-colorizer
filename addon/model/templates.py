@@ -63,6 +63,12 @@ def list_templates():
     return result
 
 
+def template_name(slug):
+    """Display name of bundled template `slug` (the slug if it has none or
+    cannot be read)."""
+    return dict(list_templates()).get(slug, slug)
+
+
 def load_template(slug):
     """The palette of bundled template `slug`. Raises ValueError / OSError."""
     path = TEMPLATE_DIR / (slug + ".json")

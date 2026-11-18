@@ -1,9 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Group/column palette model and 1.x conversion (docs/plan_palettengruppen.md, step 1)."""
+"""Group/column palette model (docs/plan_palettengruppen.md, step 1)."""
 
-import itertools
 import unittest
 import sys
 from pathlib import Path
@@ -14,13 +13,23 @@ sys.path.insert(0, str(ROOT / "addon"))
 from model import palette as P
 
 
-def _classic_params(**overrides):
-    params = {
-        "cols": 16, "rows": 9, "add_greyscale": True,
-        "saturation": 1.0, "brightness": 1.0, "tint": 0.8, "shade": 0.8,
-    }
-    params.update(overrides)
-    return params
+def _wheel_palette(cols=16, rows=9, grey=True, chroma=0.16, **overrides):
+    """Test fixture: an optional "Greyscale" group (one grey column from
+    white to black) plus a "Color Wheel" group of `cols` evenly spaced hues
+    with ids "hue-<i>"."""
+    groups = []
+    if grey:
+        groups.append({"name": "Greyscale", "chroma": 0.0, "l_top": 1.0, "l_bottom": 0.0,
+                       "columns": [{"id": "grey", "name": "Grey", "hue": 0.0,
+                                    "chroma": None, "span": 1}]})
+    groups.append({"name": "Color Wheel", "chroma": chroma,
+                   "columns": [{"id": "hue-%d" % i, "name": "Hue %d" % (i + 1),
+                                "hue": i * 360.0 / cols, "chroma": None, "span": 1}
+                               for i in range(cols)]})
+    pal = {"groups": groups, "rows": rows, "l_top": 0.94, "l_bottom": 0.22,
+           "tint": 0.8, "shade": 0.8, "hue_shift": 0.0, "warmth": 0.0}
+    pal.update(overrides)
+    return pal
 
 
 # The approved palette ("Stilisiertes 3D"): 22 grid columns x 5 rows.
@@ -91,72 +100,6 @@ def _ref_cell(h0, cpeak, y, half=None):
         wb = w * 0.01
         return P._oklab_to_srgb(L, wb - cool * 0.4, wb - cool * 0.8)
     return P._oklch_to_rgb_clamped(L, C, h)
-
-
-def _old_oklch_hue_cell(i, y, params):
-    """LPC 1.x OKLCH formula of hue column i (reference for the conversion)."""
-    rows, n = params["rows"], params["cols"]
-    t = y / (rows - 1) if rows > 1 else 0.5
-    hs, w = params.get("hue_shift", 0.0), params.get("warmth", 0.0)
-    base = ((i / n) * 360.0 + w * 30.0) % 360.0
-    if t <= 0.5:
-        rf = 1.0 - t / 0.5
-        pole = 95.0 if hs >= 0 else 265.0
-        diff = (pole - base + 180.0) % 360.0 - 180.0
-        h = (base + diff * (0.22 * abs(hs) * rf)) % 360.0
-        C = 0.16 * params["saturation"] * (1.0 - 0.50 * params["tint"] * rf)
-    else:
-        rf = (t - 0.5) / 0.5
-        pole = 265.0 if hs >= 0 else 95.0
-        diff = (pole - base + 180.0) % 360.0 - 180.0
-        h = (base + diff * (0.28 * abs(hs) * rf)) % 360.0
-        C = 0.16 * params["saturation"] * (1.0 - 0.25 * params["shade"] * rf)
-    L = max(0.02, min(0.98, (0.94 - 0.72 * t) * params["brightness"]))
-    return P._oklch_to_rgb_clamped(L, C, h)
-
-
-class TestConversion(unittest.TestCase):
-    """LPC 1.x parameters -> palette: same grid, OKLCH colors."""
-
-    def test_same_grid(self):
-        for grey, cols, rows in itertools.product((True, False), (1, 7, 16, 64), (1, 2, 9)):
-            params = _classic_params(add_greyscale=grey, cols=cols, rows=rows)
-            with self.subTest(params=params):
-                pal = P.palette_from_params(params)
-                P.validate_palette(pal)
-                self.assertEqual(P.cell_count(pal), P.cell_count(params))
-
-    def test_flat_params_equal_converted_palette(self):
-        params = _classic_params(hue_shift=0.4, warmth=-0.2, saturation=0.7)
-        pal = P.palette_from_params(params)
-        self.assertEqual(P.build_pixels(pal), P.build_pixels(params))
-        for color in ((1, 1, 1), (0, 0, 0), (0.8, 0.2, 0.1), (0.1, 0.5, 0.9)):
-            self.assertEqual(P.nearest_cell(color, pal), P.nearest_cell(color, params))
-
-    def test_oklch_hue_columns_unchanged(self):
-        # 1.x OKLCH scenes keep their hue columns' colors (up to rounding).
-        for hs, warmth, sat, bright in itertools.product(
-                (0.0, 0.5, -0.7), (0.0, 0.2, -1.0), (1.0, 0.35), (1.0, 0.6)):
-            params = _classic_params(color_mode="OKLCH", cols=12, rows=7, hue_shift=hs,
-                                     warmth=warmth, saturation=sat, brightness=bright,
-                                     tint=0.3, shade=0.9)
-            for i in range(12):
-                for y in range(7):
-                    with self.subTest(params=params, i=i, y=y):
-                        got = P.color_at(i + 1, y, params)[:3]
-                        for u, v in zip(got, _old_oklch_hue_cell(i, y, params)):
-                            self.assertAlmostEqual(u, v, places=9)
-
-    def test_structure(self):
-        pal = P.palette_from_params(_classic_params(cols=12))
-        self.assertEqual(P.group_ranges(pal), [
-            (P.CLASSIC_GREYSCALE_GROUP, 0, 1), (P.CLASSIC_WHEEL_GROUP, 1, 12)])
-        ids = [c["id"] for c, _part in P.grid_columns(pal)]
-        self.assertEqual(ids[:4], [P.CLASSIC_GREYSCALE_ID, "hue-0", "hue-1/12", "hue-1/6"])
-        self.assertEqual(len(set(ids)), 13)
-
-        pal = P.palette_from_params(_classic_params(cols=5, add_greyscale=False))
-        self.assertEqual(P.group_ranges(pal), [(P.CLASSIC_WHEEL_GROUP, 0, 5)])
 
 
 class TestStylizedPalette(unittest.TestCase):

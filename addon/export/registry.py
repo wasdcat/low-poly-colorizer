@@ -37,6 +37,9 @@ import os
 #                  (preset_values_* placeholders).
 # The text placeholders are always in the render context, whatever the flags
 # say -- a flag only decides whether the PNG is written as well.
+# cheatsheet       optional, default False: also write the palette as a
+#                  labeled PNG for people (exporter.CHEATSHEET_FILENAME,
+#                  export/cheatsheet.py) -- not read by any template.
 TEMPLATE_SETS = (
     {
         "id": "godot",
@@ -56,6 +59,9 @@ TEMPLATE_SETS = (
         # parameters, and the LUT's import pitfall (Fix Alpha Border) is
         # handled by the generated .import file.
         "preset_texture": True,
+        # Cheatsheet: a labeled palette PNG to look things up; its .import
+        # sidecar ("skip") keeps Godot from importing or exporting it.
+        "cheatsheet": True,
     },
 )
 
@@ -86,6 +92,13 @@ def writes_preset_texture(set_id):
     """Whether exporting `set_id` writes the preset LUT PNG (default True)."""
     entry = get(set_id)
     return entry is not None and bool(entry.get("preset_texture", True))
+
+
+def writes_cheatsheet(set_id):
+    """Whether exporting `set_id` writes the palette cheatsheet PNG
+    (default False)."""
+    entry = get(set_id)
+    return entry is not None and bool(entry.get("cheatsheet", False))
 
 
 def enum_items():

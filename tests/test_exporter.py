@@ -13,10 +13,12 @@ from types import SimpleNamespace
 # Add addon directory to sys.path for standalone testing
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "addon"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from export import exporter, registry
 from model import palette as model_palette
 from picker import interface as picker_interface
+from test_palette_groups import _wheel_palette
 
 
 class TestExporter(unittest.TestCase):
@@ -98,10 +100,8 @@ def _palette_props(pal):
 
 
 def _scene(presets=None, **palette_overrides):
-    pal = model_palette.palette_from_params(model_palette.params_from_legacy(dict(
-        cols=5, rows=4, add_greyscale=True, saturation=0.9, brightness=0.8,
-        tint=0.7, shade=0.6, hue_shift=0.5, warmth=-0.3,
-    )))
+    pal = _wheel_palette(cols=5, rows=4, chroma=0.144, l_top=0.752, l_bottom=0.176,
+                         tint=0.7, shade=0.6, hue_shift=0.5, warmth=-0.3)
     pal.update(palette_overrides)
     return SimpleNamespace(
         lpc_palette_params=_palette_props(pal),
@@ -212,6 +212,20 @@ class TestPaletteStructure(unittest.TestCase):
         for key in ("palette_has_greyscale", "palette_saturation",
                     "palette_brightness", "palette_color_mode"):
             self.assertNotIn(key, context)
+
+
+class TestFingerprint(unittest.TestCase):
+    def test_palette_name_marks_the_export_dirty(self):
+        # The name is the cheatsheet title, so renaming needs a re-export.
+        from unittest import mock
+        scene = _scene()
+        # The LUT builder lives in the bpy layer; its pixels don't matter here.
+        with mock.patch.object(exporter.model_presets, "build_preset_lut_pixels",
+                               lambda _scene: [0.0], create=True):
+            scene.lpc_palette_params.name = "Stylized 3D"
+            before = exporter.export_fingerprint(scene)
+            scene.lpc_palette_params.name = "Pod Rush"
+            self.assertNotEqual(exporter.export_fingerprint(scene), before)
 
 
 class TestStableUid(unittest.TestCase):

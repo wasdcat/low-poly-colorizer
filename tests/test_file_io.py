@@ -59,13 +59,12 @@ class TestWriteRead(unittest.TestCase):
 
 
 class TestCompatibility(unittest.TestCase):
-    def test_version_1_presets_file(self):
+    def test_version_1_files_are_rejected(self):
+        # No compatibility with LPC 1.x preset files.
         text = json.dumps({"version": 1, "presets": [
-            {"name": "Old", "roughness": 0.5, "metallic": 0, "emission": 0, "clearcoat": 0,
-             "cell": [3, 4]}]})  # 1.0 exports carried a cell; ignored
-        data = F.read_lpc_file(text)
-        self.assertIsNone(data["palette"])
-        self.assertEqual(data["presets"][0]["name"], "Old")
+            {"name": "Old", "roughness": 0.5, "metallic": 0, "emission": 0, "clearcoat": 0}]})
+        with self.assertRaises(ValueError):
+            F.read_lpc_file(text)
 
     def test_templates_are_lpc_files(self):
         for slug, _name in T.list_templates():

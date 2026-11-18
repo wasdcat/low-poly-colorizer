@@ -132,11 +132,11 @@ class LPC_RemapRow(bpy.types.PropertyGroup):
     old_y: bpy.props.IntProperty()
     label: bpy.props.StringProperty()
     faces: bpy.props.IntProperty()
-    old_color: bpy.props.FloatVectorProperty(subtype="COLOR", size=4, min=0.0, max=1.0)
+    old_color: bpy.props.FloatVectorProperty(subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0)
     new_x: bpy.props.IntProperty(name="X", min=0)
     new_y: bpy.props.IntProperty(name="Y", min=0)
     new_color: bpy.props.FloatVectorProperty(
-        subtype="COLOR", size=4, min=0.0, max=1.0, get=_new_color_get)
+        subtype="COLOR_GAMMA", size=4, min=0.0, max=1.0, get=_new_color_get)
     new_label: bpy.props.StringProperty(get=_new_label_get)
 
 
@@ -442,6 +442,7 @@ class LPC_OT_palette_load_template(bpy.types.Operator):
         # Fresh ids would lose the automatic remap between palettes that
         # share columns, so the template's ids are kept as they are.
         picker_interface.write_palette(p, pal)
+        p.name = model_templates.template_name(self.template)
         _changed(context)
         return {"FINISHED"}
 
@@ -456,16 +457,7 @@ class LPC_MT_palette_templates(bpy.types.Menu):
             layout.operator("lpc.palette_load_template", text=name).template = slug
 
 
-class LPC_OT_palette_dismiss_notice(bpy.types.Operator):
-    """Hide the note about the palette converted from LPC 1.x"""
 
-    bl_idname = "lpc.palette_dismiss_notice"
-    bl_label = "Dismiss"
-    bl_options = {"REGISTER", "UNDO", "INTERNAL"}
-
-    def execute(self, context):
-        _params(context).legacy_notice = False
-        return {"FINISHED"}
 
 
 class LPC_UL_palette_groups(bpy.types.UIList):
@@ -478,9 +470,10 @@ class LPC_UL_palette_groups(bpy.types.UIList):
 class LPC_UL_palette_columns(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_prop, index):
         row = layout.row(align=True)
-        sw = row.row()
-        sw.ui_units_x = 1.2
-        sw.prop(item, "preview_color", text="")
+        # First / middle / last cell of the ramp (whole ramp with span 2).
+        sw = row.row(align=True)
+        sw.ui_units_x = 3.0
+        for key in ("preview_first", "preview_color", "preview_last"):
+            sw.prop(item, key, text="")
+        row.separator(factor=0.6)
         row.prop(item, "name", text="", emboss=False)
-        if item.span > 1:
-            row.label(text="x%d" % item.span)

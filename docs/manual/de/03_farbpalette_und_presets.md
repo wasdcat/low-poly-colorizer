@@ -15,7 +15,7 @@ Klicken Sie im N-Panel auf den **Paletten-Button** (Farbwähler), öffnet sich d
 | **Ⓐ** | **Gruppe**: Die Palette ist in Gruppen gegliedert (z. B. *Neutral*, *Nature*, *Accent*). Jede Gruppe trägt ihren Namen als Überschrift; zwischen den Gruppen liegt eine kleine Lücke. |
 | **Ⓑ** | **Spalten**: Jede Spalte ist ein Farbton mit eigener Helligkeitsrampe. Eine Spalte kann sich über zwei Rasterspalten erstrecken – etwa eine lange Grauskala mit doppelt so vielen Stufen. |
 | **Ⓒ** | **Zeilen**: Vertikale Abstufung von hell nach dunkel. Zeile 0, die hellste, ist die unterste Zeile. |
-| **Ⓓ** | **Aktive Zelle & Selektionsrahmen**: Zweifarbiger Markierungsrahmen um die momentan gewählte Palettenzelle $(X, Y)$ mit direkter Zuweisung per Klick. |
+| **Ⓓ** | **Aktive Zelle & Selektionsrahmen**: Zweifarbiger Markierungsrahmen um die momentan gewählte Palettenzelle mit direkter Zuweisung per Klick. |
 
 Unter dem Raster zeigt der Picker den Namen der Zelle unter dem Mauszeiger, z. B. *Nature · Moss 3*. Aufbau und Größe der Palette legen Sie unter *Settings…* fest (siehe unten).
 
@@ -43,7 +43,7 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 ### Preset-Zusatzfunktionen (Menü `▾`)
 
 * **Duplicate**: Erstellt eine 1:1-Kopie des aktiven Presets, um rasch Variationen zu erzeugen.
-* **Import / Export Palette / Presets**: Speichert Palette und Presets in einer JSON-Datei bzw. lädt sie wieder – ideal zur Wiederverwendung in anderen Projekten. Im Dateidialog wählen Sie per Haken, ob die Palette, die Presets oder beides geschrieben bzw. übernommen werden. Beim Import werden Presets mit bereits vorhandenem Namen aktualisiert, neue werden angehängt; eine Palette ersetzt die aktuelle vollständig (bemalte Flächen ziehen mit, siehe *Bemalte Flächen beim Umbau*). Preset-Dateien aus LPC 1.x lassen sich weiterhin importieren.
+* **Import / Export Palette / Presets**: Speichert Palette und Presets in einer JSON-Datei bzw. lädt sie wieder – ideal zur Wiederverwendung in anderen Projekten. Im Dateidialog wählen Sie per Haken, ob die Palette, die Presets oder beides geschrieben bzw. übernommen werden. Beim Import werden Presets mit bereits vorhandenem Namen aktualisiert, neue werden angehängt; eine Palette ersetzt die aktuelle vollständig (bemalte Flächen ziehen mit, siehe *Bemalte Flächen beim Umbau*).
 * **Load Default Presets**: Ergänzt fehlende der vier mitgelieferten Werks-Presets (*Solid*, *Metallic*, *Clearcoat*, *Emission*) und setzt gleichnamige Presets auf die Werkswerte zurück.
 * **Create Geometry Node Group**: Siehe Kapitel *Engine-Export und Integration*.
 
@@ -53,21 +53,18 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 
 Über den Button **Settings…** im N-Panel öffnen Sie das Konfigurationsfenster für die Palette und die projektweiten Shader-Parameter. Änderungen werden live angezeigt; *OK* übernimmt sie, *Cancel* nimmt sie zurück.
 
-![Die globalen LPC-Einstellungen: Palette](../common/images/settings_annotated_1.png)
+Der Dialog ist von oben nach unten gegliedert: erst die Werte der ganzen Palette, dann die Gruppen, dann die Spalten der gewählten Gruppe, zuletzt die Materialwerte.
+
+![Die globalen LPC-Einstellungen](../common/images/settings_annotated.png)
 
 | Bereich | Beschreibung |
 |:---:|:---|
-| **①** | **Palette & Raster**: Menü **Templates** mit den mitgelieferten Vorlagen, Zeilenzahl (*Rows*) und Helligkeitsbereich (*Lightest* / *Darkest*). |
+| **①** | **Palette**: Name der Palette (kommt aus der Vorlage bzw. LPC-Datei und erscheint auf dem exportierten Spickzettel), Menü **Templates** mit den mitgelieferten Vorlagen und die Werte der ganzen Palette – Zeilenzahl (*Rows*), Helligkeitsbereich (*Lightest* / *Darkest*), Farbverlauf zu den Enden (*Tint* / *Shade*) sowie Farbtemperatur (*Hue Shift* / *Warmth*, siehe *Artwork*). |
 | **②** | **Groups**: Liste der Gruppen (hinzufügen, entfernen, verschieben) und die Werte der gewählten Gruppe: *Chroma* sowie optional ein eigener Helligkeitsbereich. |
-| **③** | **Columns**: Liste der Spalten der gewählten Gruppe mit Farbvorschau und die Werte der gewählten Spalte: *Hue*, *Span* und optional ein eigenes *Chroma*. |
+| **③** | **Columns of …**: Liste der Spalten der gewählten Gruppe – je Spalte drei Farbfelder (erste, mittlere und letzte Farbe ihrer Rampe) und ihr Name – und die Werte der gewählten Spalte: *Hue*, *Span* und optional ein eigenes *Chroma*. |
+| **④** | **Material (all presets)**: Werte des gemeinsamen Materials, die für alle Presets gelten – der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Rauheit der Klarlackschicht (*Clearcoat Roughness*). Sie gehören nicht zur Palette und ändern keine Farbe. |
 
-![Die globalen LPC-Einstellungen: Abstufung, Artwork und Globals](../common/images/settings_annotated_2.png)
-
-| Bereich | Beschreibung |
-|:---:|:---|
-| **④** | **Tint / Shade**: Wie stark die Farbigkeit zu den hellsten (*Tint*) bzw. dunkelsten Zeilen (*Shade*) hin abnimmt. |
-| **⑤** | **Artwork**: Vertikaler Farbtemperatur-Drift (**Hue Shift**) und globale Farbtemperatur (**Warmth**). |
-| **⑥** | **Globals**: Projektweite Parameter wie der globale Emissions-Skalierungsfaktor (*Emission Factor*) und die Grund-Rauheit für Klarlack (*Clearcoat Roughness*). |
+*Tint* und *Shade* legen fest, wie stark die Farbigkeit zu den hellsten (*Tint*) bzw. dunkelsten Zeilen (*Shade*) hin abnimmt. Niedrige Werte halten Lichter und Schatten farbig – gut für einen Toon-Look.
 
 ---
 
@@ -75,9 +72,9 @@ Jedes Preset bündelt vier standardisierte physikalische Materialparameter:
 
 Die Palette besteht aus **Gruppen**, und jede Gruppe aus **Spalten**. Die Reihenfolge im Picker folgt genau dieser Gliederung: erst die Gruppen, darin ihre Spalten.
 
-* **Gruppen** ordnen die Palette nach Rolle. Bewährt hat sich eine Aufteilung in *Neutral* (Grau und fast neutrale Töne), *Nature* (gedämpfte Naturtöne für Gelände und Umgebung) und *Accent* (kräftige Farben für alles Spielrelevante). Das *Chroma* einer Gruppe – die Farbigkeit in OKLCH, 0 = Grau – gilt für alle ihre Spalten ohne eigenen Wert. Optional erhält eine Gruppe einen eigenen Helligkeitsbereich, etwa damit ihr Grau bis fast Schwarz reicht, ohne die übrigen Farben abzudunkeln.
+* **Gruppen** ordnen die Palette nach Rolle. Bewährt hat sich eine Aufteilung in *Neutral* (Grau und fast neutrale Töne), *Nature* (gedämpfte Naturtöne für Gelände und Umgebung) und *Accent* (kräftige Farben für alles Spielrelevante). Das *Chroma* einer Gruppe – die Farbigkeit in OKLCH, 0 = Grau – gilt für alle ihre Spalten ohne eigenen Wert. Optional erhält eine Gruppe einen eigenen Helligkeitsbereich, etwa damit Grau und Stahl dunkler werden (Gummi, dunkles Metall) oder Schnee nie dunkel wird, ohne die übrigen Farben zu verändern.
 * **Spalten** sind die eigentlichen Farbtöne. *Hue* ist der Farbton in Grad (OKLCH), *Chroma* optional die eigene Farbigkeit. Mit *Span 2* erstreckt sich eine Spalte über zwei Rasterspalten: Ihre Helligkeitsrampe läuft dann über doppelt so viele Stufen, links die helle, rechts die dunkle Hälfte.
-* **Zeilen** gelten für die ganze Palette. *Lightest* und *Darkest* legen fest, wie hell die erste und wie dunkel die letzte Zeile ist; dazwischen sind die Stufen in wahrgenommener Helligkeit gleichmäßig verteilt.
+* **Zeilen** gelten für die ganze Palette. *Lightest* und *Darkest* legen fest, wie hell die erste und wie dunkel die letzte Zeile ist (OKLab-Helligkeit, Standard 0.90 und 0.33); dazwischen sind die Stufen in wahrgenommener Helligkeit gleichmäßig verteilt. Die Palette liefert die Grundfarbe (Albedo) der Flächen; wie hell sie im Bild wirken, bestimmt das Licht. *Darkest* unter etwa 0.3 ergibt sehr dunkle Albedo-Werte, die kaum eine reale Oberfläche hat – dunkle Schatten entstehen durch die Beleuchtung.
 
 Alle Farben entstehen im wahrnehmungsgetreuen Farbraum **OKLCH**: Gleiche Helligkeitswerte wirken über alle Farbtöne gleich hell. Gelbtöne behalten ihren sonnigen Charakter, Blautöne bleiben klar und Schattenstufen saufen nicht unkontrolliert ab.
 
@@ -85,8 +82,12 @@ Alle Farben entstehen im wahrnehmungsgetreuen Farbraum **OKLCH**: Gleiche Hellig
 
 Über **Templates** ersetzen Sie die Palette durch eine mitgelieferte Vorlage:
 
-* **Stylized 3D** (Standard für neue Dateien): 22 Spalten × 5 Zeilen in den Gruppen *Neutral*, *Nature* und *Accent* – ruhige Töne für die Umgebung, kräftige Akzente für Spielrelevantes.
-* **Classic Color Wheel**: Eine Grauskala plus 16 gleichmäßig verteilte Farbtöne × 9 Zeilen – im Aufbau wie die Standardpalette von LPC 1.x, berechnet in OKLCH.
+* **Stylized 3D** (Standard für neue Dateien): 21 Spalten × 7 Zeilen in den Gruppen *Neutral*, *Nature* und *Accent* – ruhige Töne für die Umgebung, kräftige Akzente für Spielrelevantes.
+* **Toon Outdoor**: 26 Spalten × 5 Zeilen mit Naturfarben für Toon- und Low-Poly-Außenszenen, in den Gruppen *Ground* (Erde, Lehm, Weg, Sand, Fels, Stein), *Foliage* (Wiese, Gras, Laub, Moos, Kiefer, Salbei), *Autumn*, *Wood*, *Water & Sky* (mit eigenem, hellerem Helligkeitsbereich) und *Flowers*. Niedriges *Tint* / *Shade* hält Lichter und Schatten farbig.
+* **Industrial Planet**: 25 Spalten × 7 Zeilen für eine stilisierte Sci-Fi-Industriewelt auf einem kargen Planeten, in den Gruppen *Neutral* (Grau, Stahl, Beton – bis zu dunklem Gummi), *Terrain* (Basalt, Fels, rostrotes Oxid, Staub, Ocker, Flechten), *Snow & Ice* (eigener heller Bereich: Schnee, Eis, Dunst), *Industry* (Warngelb, Sicherheitsorange, Signalrot, Kobalt, Petrol, Kupfer, Messing) und *Energy* (Leuchtfarben mit eigenem Bereich 0.91–0.45: Volt, Sodium, Plasma, Neon, Acid, Ion). Für Leuchtschriften und -markierungen die mittleren Zeilen von *Energy* mit einem Emission-Preset verwenden.
+* **Classic Color Wheel**: Eine Grauskala plus 16 gleichmäßig verteilte Farbtöne × 9 Zeilen – ein klassischer Farbkreis, berechnet in OKLCH.
+
+Alle Vorlagen bleiben in einem plausiblen Albedo-Bereich, ohne reines Schwarz oder Weiß.
 
 Vorlagen sind JSON-Dateien im selben Format wie *Export Palette / Presets* – eine exportierte Palette lässt sich also jederzeit in ein anderes Projekt übernehmen.
 
@@ -103,7 +104,7 @@ Farbänderungen (Farbton, Chroma, Helligkeit, Tint/Shade, Artwork) verschieben k
 
 ## Artwork: Farblehre und Shading-Harmonisierung
 
-Professionelle 3D-Grafik und Malerei arbeiten selten mit reinen Helligkeitsabstufungen, sondern mit **Farbtemperatur-Kontrasten** (warmes Sonnenlicht erzeugt kühle Schatten). Die Sektion **Artwork** bietet dafür zwei Stellschrauben:
+Professionelle 3D-Grafik und Malerei arbeiten selten mit reinen Helligkeitsabstufungen, sondern mit **Farbtemperatur-Kontrasten** (warmes Sonnenlicht erzeugt kühle Schatten). Dafür gibt es in der Box **Palette** des Settings-Dialogs zwei Regler:
 
 * **Hue Shift (-1.0 bis +1.0)**: Simuliert atmosphärisches Shading.
   * *Positive Werte (0.3 bis 0.5)*: Highlights driften zur warmen Farbachse (Gelb/Gold), Schatten wandern zur kühlen Achse (Blau/Violett) – ideal für sonnige Außenszenen.
@@ -114,19 +115,9 @@ Professionelle 3D-Grafik und Malerei arbeiten selten mit reinen Helligkeitsabstu
 ### Empfohlene Einstellungen (Rezepte)
 
 * **Stilisiertes 3D (Outdoor / Sonne)**: `Hue Shift: 0.5`, `Warmth: 0.2` – die Werte der Vorlage *Stylized 3D*.
+* **Toon-Außenszene**: `Hue Shift: 0.6`, `Warmth: 0.15`, dazu `Tint: 0.45`, `Shade: 0.55` – die Werte der Vorlage *Toon Outdoor*.
+* **Karge Sci-Fi-Industriewelt**: `Hue Shift: 0.35`, `Warmth: 0.05` – die Werte der Vorlage *Industrial Planet*.
 * **Nacht / Sci-Fi / Mondschein**: `Hue Shift: -0.35`, `Warmth: -0.25`.
 * **Neutral**: `Hue Shift: 0.0`, `Warmth: 0.0`.
 
 Die Grundstimmung eines Levels gehört dagegen ins Licht und Postprocessing der Engine – die Palette bleibt dieselbe.
-
----
-
-## Umstieg von LPC 1.x
-
-LPC 2.0 kennt nur noch das Modell aus Gruppen und Spalten. Öffnen Sie eine mit LPC 1.x gespeicherte Datei, wandelt LPC ihre Palette einmalig um:
-
-* Die Graustufenspalte wird zur Gruppe *Greyscale* (weiterhin von Weiß bis Schwarz), der Farbkreis zur Gruppe *Color Wheel* mit denselben Farbtönen. Das Raster bleibt gleich groß, **jede bemalte Fläche behält ihre Zelle**.
-* *Saturation* wird zum Chroma der Gruppe *Color Wheel*, *Brightness* zum Helligkeitsbereich. Der Umschalter *Color Mode* entfällt: Alle Paletten werden in OKLCH berechnet.
-* **Die Farben können sich ändern.** Paletten im früheren Standard-Modus *HSV* sehen sichtbar anders aus (andere Sättigung und Helligkeit je Farbton); Paletten im Modus *OKLCH* bleiben in den Farbspalten praktisch gleich.
-
-Nach der Umwandlung weisen das N-Panel und der Settings-Dialog darauf hin, bis Sie den Hinweis mit *Dismiss* schließen. Wer die alten Farben exakt braucht, bleibt für dieses Projekt bei LPC 1.2.

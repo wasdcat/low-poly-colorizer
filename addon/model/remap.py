@@ -133,8 +133,7 @@ def _labs(palette):
 
 def plan_remap(old_palette, new_palette, used_cells=None):
     """Where each used cell of `old_palette` goes in `new_palette` (both
-    group/column palettes, see `palette.palette_from_params` for classic
-    parameters).
+    group/column palettes).
 
     `used_cells` maps old cell (x, y) -> number of faces using it (e.g. from
     `count_cells`); cells outside the old grid land in `Remap.invalid`.

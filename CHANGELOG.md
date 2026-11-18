@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Template *Industrial Planet***: 25 × 7 colors for a stylized sci-fi industrial world on a barren planet — groups *Neutral* (grey, steel, concrete; darker range for rubber), *Terrain* (basalt, rock, oxide, dust, ochre, lichen), *Snow & Ice* (own light range), *Industry* (hazard, safety, signal, cobalt, teal, copper, brass) and *Energy* (glow colors Volt, Sodium, Plasma, Neon, Acid, Ion with their own range for emission).
+- **Template *Toon Outdoor***: 26 × 5 natural colors for toon / low-poly outdoor scenes — groups *Ground* (soil, clay, path, sand, rock, stone), *Foliage* (meadow, grass, leaf, moss, pine, sage), *Autumn*, *Wood*, *Water & Sky* (own lighter range: sky, water, lake, snow) and *Flowers*. Low tint / shade keep color in highlights and shadows, hue shift gives warm lights and cool shadows.
+- **Palette cheatsheet**: the Godot export also writes `lpc_palette_cheatsheet.png` — a title line with the palette's name and "created with Low Poly Colorizer", then the palette grid as in the picker, with group names, row numbers and every column's name written vertically below it. Its `.import` file tells Godot to skip it (not imported, not exported with the game).
+
+### Fixed
+- **Color space**: palette colors are computed as sRGB but were handled as linear values — in the Blender preview material (Non-Color palette image) and in the Godot shaders (palette sampler without `source_color`). Painted faces therefore rendered too light and washed out in both. The palette image is now an 8-bit *sRGB* image, and `lpc_palette_tex` in `lpc_common.gdshaderinc` carries `source_color`. Faces now show the colors of the picker.
+- **Color swatches** in the panel, the Settings dialog and *Remap Painted Faces* show the true palette colors (no longer brightened by the view transform).
+
+### Changed
+- **Palette name**: the palette keeps the name of its template or imported LPC file, editable in the *Palette* box of the Settings dialog and written into exported LPC files. Renaming marks the export as out of date (the name is the cheatsheet title).
+- **Panel**: the picked cell is shown as a drop-down of the column names ("Nature · Moss") plus the row number, instead of X / Y numbers.
+- **Palettes retuned for the corrected color space** — no template has black or white albedo any more (every cell roughly 40–245 in 8-bit sRGB):
+  - Defaults: *Rows* 5 → 7, *Lightest* 0.93 → 0.90, *Darkest* 0.25 → 0.33, *Tint* 0.8 → 0.5.
+  - *Stylized 3D*: 21 × 7 instead of 22 × 5 — 7 rows for subtler steps (lightness step 0.10 instead of 0.15), less tint so light tones keep their hue, *Nature* chroma +25 % for readability at a distance, *Grey* one column instead of span 2, with the *Neutral* group's own darker range 0.95 → 0.28 (rubber, dark metal).
+  - *Classic Color Wheel*: hues 0.93 → 0.32 (was 0.94 → 0.22); the grey scale 0.97 → 0.28 instead of pure white → pure black.
+- **Settings dialog** sorted top-down: one *Palette* box (rows, *Lightest* / *Darkest*, tint / shade, hue shift / warmth), then *Groups*, then *Columns of …*; the former *Globals* box is now *Material (all presets)* at the bottom.
+- **Column list** shows the first, middle and last color of each column (whole ramp for span 2) instead of only the middle one; the "x2" span marker is gone.
+
+### Removed
+- **LPC 1.x compatibility**: files saved with LPC 1.x are no longer converted (no palette conversion, no "converted from LPC 1.x" notice and *Dismiss* button), and preset files of LPC 1.x (`version: 1`) are no longer read. The Godot README no longer covers UIDs of exports before 1.2. Migrating old projects is left to a separate tool.
+
+### Upgrade notes
+- Painted meshes look **darker and more saturated** than before, in Blender and in Godot — as the palette always looked in the picker. If you tuned palette values against the old preview, check them again.
+- Files from earlier versions are **not** converted (their palette image stays a Non-Color float image) — start from a new file. Re-export to Godot to get the updated shader include.
+
 ## [2.0.1] - 2026-11-17
 
 ### Changed

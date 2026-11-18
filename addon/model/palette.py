@@ -35,7 +35,7 @@ A palette is a mapping of groups of columns (docs/plan_palettengruppen.md):
                                   span * rows cells, column by column
     rows        -- number of rows (int, >= 1)
     l_top, l_bottom -- OKLab lightness of the first and the last cell of a
-                   ramp (default 0.93 / 0.25)
+                   ramp (default 0.90 / 0.33)
     tint        -- 0..1, chroma reduction toward the top of a ramp
     shade       -- 0..1, chroma reduction toward the bottom of a ramp
     hue_shift   -- -1..1, highlights drift toward warm and shadows toward
@@ -44,22 +44,14 @@ A palette is a mapping of groups of columns (docs/plan_palettengruppen.md):
 
 A column with an effective chroma of 0 is a neutral grey ramp (with a slight
 temperature drift from hue_shift/warmth).
-
-Flat parameters of LPC 1.x (cols, rows, add_greyscale, saturation,
-brightness, tint, shade[, color_mode, hue_shift, warmth]) are converted once
-by `palette_from_params`. Until the Blender layer stores palettes itself,
-`color_at`, `cell_count`, `build_pixels` and `nearest_cell` accept them too
-and convert on the fly. The 1.x color formulas (HSV, saturation/brightness)
-are gone: converted palettes keep their grid -- so every painted face keeps
-its cell -- but HSV palettes change color.
 """
 
 import math
 
-DEFAULT_L_TOP = 0.93
-DEFAULT_L_BOTTOM = 0.25
-DEFAULT_ROWS = 5
-DEFAULT_TINT = 0.8
+DEFAULT_L_TOP = 0.90
+DEFAULT_L_BOTTOM = 0.33
+DEFAULT_ROWS = 7
+DEFAULT_TINT = 0.5
 DEFAULT_SHADE = 0.8
 DEFAULT_HUE_SHIFT = 0.0
 DEFAULT_WARMTH = 0.0
@@ -67,35 +59,6 @@ MAX_SPAN = 2
 MAX_ROWS = 64
 MAX_GRID_COLS = 128
 MAX_CHROMA = 0.4
-
-# LPC 1.x palette parameters and their defaults. Blender stores a property
-# only once it differs from its default, so a 1.x file may lack any of
-# these -- `params_from_legacy` fills them in.
-LEGACY_DEFAULTS = {
-    "cols": 16,
-    "rows": 9,
-    "add_greyscale": True,
-    "saturation": 1.0,
-    "brightness": 1.0,
-    "tint": 0.8,
-    "shade": 0.8,
-    "hue_shift": 0.0,
-    "warmth": 0.0,
-}
-# Stored by 1.x but without effect in 2.0 (HSV/OKLCH switch).
-LEGACY_IGNORED = ("color_mode",)
-
-# Groups and ids of a palette converted from LPC 1.x parameters.
-CLASSIC_GREYSCALE_GROUP = "Greyscale"
-CLASSIC_WHEEL_GROUP = "Color Wheel"
-CLASSIC_GREYSCALE_ID = "grey"
-
-# Peak chroma of the 1.x color wheel at saturation 1.
-CLASSIC_WHEEL_CHROMA = 0.16
-# 1.x OKLCH lightness of the hue columns: (0.94 - 0.72 t) * brightness.
-_CLASSIC_L_TOP = 0.94
-_CLASSIC_L_BOTTOM = 0.22
-
 
 def _oklab_to_srgb(L, a, b):
     l_ = L + 0.3963377774 * a + 0.2158037573 * b
@@ -154,86 +117,6 @@ def _oklch_to_rgb_clamped(L, C, h_deg):
             break
         cur_c *= 0.85
     return _oklab_to_srgb(L, cur_c * math.cos(h_rad), cur_c * math.sin(h_rad))
-
-
-# --------------------------------------------------------------------------
-# Conversion of LPC 1.x parameters
-# --------------------------------------------------------------------------
-
-def is_palette(params):
-    """True if `params` is a palette rather than flat 1.x parameters."""
-    return "groups" in params
-
-
-def _classic_hue_id(i, n):
-    """Stable id of 1.x hue column i of n: its hue as a reduced fraction of a
-    turn ("hue-0", "hue-1/8"). Equal hues get equal ids whatever `n` is, so
-    a later remap matches them automatically."""
-    if i == 0:
-        return "hue-0"
-    g = math.gcd(i, n)
-    return "hue-%d/%d" % (i // g, n // g)
-
-
-def palette_from_params(params):
-    """Flat LPC 1.x parameters as a palette with the same grid: group
-    "Greyscale" (one grey column from white to black, only if
-    `add_greyscale`) + group "Color Wheel" (`cols` evenly spaced hues,
-    chroma 0.16 * saturation). The hue columns' lightness follows the 1.x
-    OKLCH formula ((0.94 - 0.72 t) * brightness); `color_mode` is ignored
-    -- HSV palettes change color."""
-    n = params["cols"]
-    brightness = params["brightness"]
-    groups = []
-    if params["add_greyscale"]:
-        groups.append({
-            "name": CLASSIC_GREYSCALE_GROUP,
-            "chroma": 0.0,
-            "l_top": 1.0,
-            "l_bottom": 0.0,
-            "columns": [{"id": CLASSIC_GREYSCALE_ID, "name": "Grey",
-                         "hue": 0.0, "chroma": None, "span": 1}],
-        })
-    groups.append({
-        "name": CLASSIC_WHEEL_GROUP,
-        "chroma": CLASSIC_WHEEL_CHROMA * params["saturation"],
-        "columns": [{"id": _classic_hue_id(i, n), "name": "Hue %d" % (i + 1),
-                     "hue": i * 360.0 / n, "chroma": None, "span": 1}
-                    for i in range(n)],
-    })
-    return {
-        "groups": groups,
-        "rows": params["rows"],
-        "l_top": _CLASSIC_L_TOP * brightness,
-        "l_bottom": _CLASSIC_L_BOTTOM * brightness,
-        "tint": params["tint"],
-        "shade": params["shade"],
-        "hue_shift": float(params.get("hue_shift", 0.0)),
-        "warmth": float(params.get("warmth", 0.0)),
-    }
-
-
-def params_from_legacy(raw):
-    """Flat 1.x parameters from what a 1.x file actually stored (`raw`: a
-    mapping, e.g. the scene's raw ID properties), each missing key at its 1.x
-    default. Feed the result to `palette_from_params`."""
-    params = dict(LEGACY_DEFAULTS)
-    for key in LEGACY_DEFAULTS:
-        if key in raw:
-            value = raw[key]
-            params[key] = type(LEGACY_DEFAULTS[key])(value)
-    return params
-
-
-def has_legacy_values(raw):
-    """True if `raw` holds any 1.x-only palette parameter -- the file was
-    saved by LPC 1.x with a changed palette."""
-    return any(key in raw for key in ("cols", "add_greyscale", "saturation",
-                                      "brightness") + LEGACY_IGNORED)
-
-
-def _as_palette(params):
-    return params if is_palette(params) else palette_from_params(params)
 
 
 # --------------------------------------------------------------------------
@@ -514,19 +397,15 @@ def _cell_color(column, group, part, y, palette):
 
 
 def cell_count(params):
-    """(cols, rows) of the grid: grid columns (spans counted) and rows.
-    For flat 1.x parameters: hue columns plus the optional greyscale one."""
-    if is_palette(params):
-        return grid_cols(params), params["rows"]
-    cols = params["cols"] + (1 if params["add_greyscale"] else 0)
-    return cols, params["rows"]
+    """(cols, rows) of the grid: grid columns (spans counted) and rows."""
+    return grid_cols(params), params["rows"]
 
 
 def color_at(x, y, params):
     """Deterministic RGBA color for cell (x, y), values in [0, 1].
 
-    `params` is a palette (or flat 1.x parameters, converted on the fly)."""
-    palette = _as_palette(params)
+    `params` is a palette."""
+    palette = params
     cells = _grid_cells(palette)
     rows = palette["rows"]
     if not (0 <= x < len(cells)):
@@ -550,7 +429,7 @@ def build_pixels(params):
     SAME convention -- they do, by sharing the (x, y) -> (cols, rows)-relative
     cell indexing this function and `color_at` both use.
     """
-    palette = _as_palette(params)
+    palette = params
     cols, rows = cell_count(palette)
     pixels = [0.0] * (cols * rows * 4)
     for y in range(rows):
@@ -567,7 +446,7 @@ def nearest_cell(color, params):
     cells), and this is the only way to guarantee consistency with
     `color_at` by construction.
     """
-    palette = _as_palette(params)
+    palette = params
     cols, rows = cell_count(palette)
     best = None
     best_dist = None

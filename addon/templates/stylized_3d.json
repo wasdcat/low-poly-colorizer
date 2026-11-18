@@ -2,10 +2,10 @@
   "version": 2,
   "name": "Stylized 3D",
   "palette": {
-    "rows": 5,
-    "l_top": 0.93,
-    "l_bottom": 0.25,
-    "tint": 0.8,
+    "rows": 7,
+    "l_top": 0.9,
+    "l_bottom": 0.33,
+    "tint": 0.5,
     "shade": 0.9,
     "hue_shift": 0.5,
     "warmth": 0.2,
@@ -18,8 +18,7 @@
             "id": "grey",
             "name": "Grey",
             "hue": 0.0,
-            "chroma": 0.0,
-            "span": 2
+            "chroma": 0.0
           },
           {
             "id": "cool",
@@ -31,41 +30,43 @@
             "name": "Warm",
             "hue": 70.0
           }
-        ]
+        ],
+        "l_top": 0.95,
+        "l_bottom": 0.28
       },
       {
         "name": "Nature",
-        "chroma": 0.05,
+        "chroma": 0.0625,
         "columns": [
           {
             "id": "rust",
             "name": "Rust",
             "hue": 35.0,
-            "chroma": 0.06
+            "chroma": 0.075
           },
           {
             "id": "brown",
             "name": "Brown",
             "hue": 55.0,
-            "chroma": 0.055
+            "chroma": 0.0688
           },
           {
             "id": "ochre",
             "name": "Ochre",
             "hue": 75.0,
-            "chroma": 0.06
+            "chroma": 0.075
           },
           {
             "id": "sand",
             "name": "Sand",
             "hue": 85.0,
-            "chroma": 0.045
+            "chroma": 0.0562
           },
           {
             "id": "olive",
             "name": "Olive",
             "hue": 110.0,
-            "chroma": 0.055
+            "chroma": 0.0688
           },
           {
             "id": "moss",
@@ -76,13 +77,13 @@
             "id": "fir",
             "name": "Fir",
             "hue": 165.0,
-            "chroma": 0.045
+            "chroma": 0.0562
           },
           {
             "id": "slate",
             "name": "Slate",
             "hue": 245.0,
-            "chroma": 0.035
+            "chroma": 0.0438
           }
         ]
       },

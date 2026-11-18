@@ -34,7 +34,6 @@ The JSON (de)serialization and validation are pure Python and testable
 without Blender; only the operator layer needs `bpy`.
 """
 
-import json
 
 try:
     import bpy
@@ -56,8 +55,6 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 # Parameter keys / neutral defaults -- defined once in the model layer.
 VALUE_KEYS = model_presets.PRESET_VALUE_KEYS
 VALUE_DEFAULTS = model_presets.PRESET_VALUE_DEFAULTS
-
-JSON_VERSION = 1  # preset files of LPC 1.x (read only)
 
 # Slack for "did this preset value change on import?" -- absorbs the
 # float32 storage round-trip (0.3 read back as 0.30000001) so an unchanged
@@ -135,23 +132,6 @@ def presets_from_list(raw_presets, strict=False):
             preset[key] = min(max(float(value), 0.0), 1.0)
         presets.append(preset)
     return presets
-
-
-def presets_from_json(text):
-    """Parse and validate a preset file of LPC 1.x (`version: 1`) into a
-    list of preset dicts (newer files: ops/file_io.py).
-
-    Raises ValueError on anything malformed (see `presets_from_list`).
-    """
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"not valid JSON: {exc}") from exc
-    if not isinstance(data, dict) or "presets" not in data:
-        raise ValueError("expected an object with a 'presets' list")
-    if data.get("version") != JSON_VERSION:
-        raise ValueError(f"unsupported version: {data.get('version')!r}")
-    return presets_from_list(data["presets"])
 
 
 # --------------------------------------------------------------------------

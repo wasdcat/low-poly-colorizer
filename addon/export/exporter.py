@@ -75,6 +75,9 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
 # both.
 PALETTE_IMAGE_FILENAME = constants.PREFIX + "palette.png"
 PRESET_LUT_IMAGE_FILENAME = constants.PREFIX + "preset_lut.png"
+# The labeled palette PNG for people (export/cheatsheet.py); its sidecar
+# template is {{prefix}}palette_cheatsheet.png.import.tpl.
+CHEATSHEET_FILENAME = constants.PREFIX + "palette_cheatsheet.png"
 
 def _fmt(value):
     return repr(round(float(value), 6))
@@ -98,9 +101,11 @@ def _palette_rows(params):
     uniforms use, so a target indexes it as `[y * cols + x]` with no flip.
     Alpha is dropped: the palette is always opaque.
 
-    Values are the raw `color_at` output, with no sRGB<->linear conversion --
-    the same numbers `build_pixels` writes into the "Non-Color" palette PNG
-    the shaders sample, so both agree up to the PNG's 8-bit rounding."""
+    Values are the raw `color_at` output: gamma-encoded sRGB, which is what
+    a Godot `Color` expects -- the same numbers `build_pixels` writes into
+    the sRGB palette PNG, which the shaders decode via `source_color`, so a
+    `Color` from here and a painted face agree up to the PNG's 8-bit
+    rounding."""
     cols, rows = model_palette.cell_count(params)
     return [
         [model_palette.color_at(x, y, params)[:3] for x in range(cols)]
@@ -382,10 +387,11 @@ def export_fingerprint(scene):
     `build_context` only counts) plus the palette params (a stand-in for
     the palette pixels themselves -- `model_palette.build_pixels` is a pure
     function of them, so they carry the same information without hashing
-    the whole pixel array)."""
+    the whole pixel array) plus the palette's name (the cheatsheet title)."""
     lut = tuple(round(v, 6) for v in model_presets.build_preset_lut_pixels(scene))
     palette_params = json.dumps(picker_interface.params_from_scene(scene), sort_keys=True)
-    return repr((build_context(scene), lut, palette_params))
+    name = getattr(scene.lpc_palette_params, "name", "")
+    return repr((build_context(scene), lut, palette_params, name))
 
 
 def is_export_dirty(scene):
@@ -431,6 +437,20 @@ def write_textures(scene, out_dir, set_id):
         image.save()
         written.append(filename)
     return written
+
+
+def write_cheatsheet(scene, out_dir, set_id):
+    """Write the palette cheatsheet PNG if `set_id` asks for it. Returns the
+    list of written filenames (empty if not wanted). Raises RuntimeError
+    without a GPU context."""
+    if not registry.writes_cheatsheet(set_id):
+        return []
+    from . import cheatsheet
+
+    cheatsheet.render_png(picker_interface.params_from_scene(scene),
+                          os.path.join(out_dir, CHEATSHEET_FILENAME),
+                          title=scene.lpc_palette_params.name)
+    return [CHEATSHEET_FILENAME]
 
 
 def _render(text, mapping):
@@ -588,7 +608,17 @@ if bpy is not None:
                 return {"CANCELLED"}
             _mark_exported(scene)
 
+            # The cheatsheet is for people only -- failing to draw it (no GPU
+            # context) must not fail the export.
+            sheet_error = None
+            try:
+                written += write_cheatsheet(scene, out_dir, set_id)
+            except (OSError, RuntimeError) as exc:
+                sheet_error = str(exc)
+
             label = entry["label"]
+            if sheet_error:
+                self.report({"WARNING"}, f"Palette cheatsheet skipped: {sheet_error}")
             broken = _uv_problem_count(scene)
             if broken:
                 self.report(

@@ -22,7 +22,7 @@ Once the addon is enabled, you can start painting right away:
 1. **Prepare a model**: Select a mesh object in the 3D Viewport (e.g. the default cube). Optionally press `Tab` to switch to **Edit Mode** and select individual faces.
 2. **Open the N-Panel**: Press `N` in the 3D Viewport and switch to the **LPC** tab.
 3. **Select a preset**: In the preset list, *Solid* is active by default.
-4. **Open the palette**: Click the **Palette button** (color picker) next to the coordinates. The GPU palette overlay opens directly in the viewport.
+4. **Open the palette**: Click the **Palette button** (color picker) next to the column drop-down. The GPU palette overlay opens directly in the viewport.
 5. **Assign color**: Click any color cell. The picker closes and the selection is painted in real time with the chosen color and material look.
 
 > [!TIP]

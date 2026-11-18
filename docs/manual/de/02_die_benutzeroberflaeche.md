@@ -10,7 +10,7 @@ Die gesamte Bedienung von Low Poly Colorizer findet in einem kompakten Bedienfel
 
 | Nr. | Bereich | Beschreibung |
 |:---:|:---|:---|
-| **①** | **Farbauswahl & Picker** | Zeigt die Farbe und die Koordinaten $(X, Y)$ der aktiven Palettenzelle. Ein Klick auf den **Paletten-Button** (Farbwähler) öffnet den interaktiven Modal-Picker im Viewport. Die Koordinaten können auch direkt numerisch editiert werden – das bemalt die aktuelle Auswahl sofort, genau wie ein Klick im Picker. |
+| **①** | **Farbauswahl & Picker** | Zeigt die Farbe der aktiven Palettenzelle, ihre Spalte als Auswahlfeld mit den Spaltennamen („Gruppe · Spalte“, z. B. *Nature · Moss*) und rechts daneben ihre Zeilennummer (0 = hellste). Ein Klick auf den **Paletten-Button** (Farbwähler) öffnet den interaktiven Modal-Picker im Viewport. Spalte und Zeile lassen sich auch direkt ändern – das bemalt die aktuelle Auswahl sofort, genau wie ein Klick im Picker. |
 | **②** | **Selektions-Status** | Informiert dynamisch über die Zielauswahl (*„14 faces in 1 object selected“* bzw. *„1 object selected“*). Warnt mit einem Warnhinweis, falls kein Preset ausgewählt ist. |
 | **③** | **Preset-Liste & Aktionen** | Listet alle Material-Presets. Die Zahl rechts ist der **Refcount** (wie viele Flächen dieses Preset nutzen). Enthält Buttons für neues Preset (`+`), Löschen (`-`) und das Menü für erweiterte Aktionen (`▾`). |
 | **④** | **PBR-Eigenschaften** | Steuert die physikalischen Materialwerte (*Roughness*, *Metallic*, *Emission*, *Clearcoat*) des **aktuell aktiven Presets**. Änderungen wirken sofort auf alle Flächen, die dieses Preset nutzen. |

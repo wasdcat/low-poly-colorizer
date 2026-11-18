@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Palette functions with flat LPC 1.x parameters (converted on the fly)."""
+"""Palette functions on a simple greyscale + color wheel palette."""
 
 import unittest
 import sys
@@ -10,8 +10,10 @@ from pathlib import Path
 # Add addon directory to sys.path for standalone testing
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "addon"))
+sys.path.insert(0, str(ROOT / "tests"))
 
 from model import palette
+from test_palette_groups import _wheel_palette
 
 
 def _luminance(c):
@@ -20,24 +22,9 @@ def _luminance(c):
 
 class TestPalette(unittest.TestCase):
     def setUp(self):
-        self.params_default = {
-            "cols": 16,
-            "rows": 9,
-            "add_greyscale": True,
-            "saturation": 1.0,
-            "brightness": 1.0,
-            "tint": 0.8,
-            "shade": 0.8,
-        }
-        self.params_no_grey = {
-            "cols": 8,
-            "rows": 5,
-            "add_greyscale": False,
-            "saturation": 1.0,
-            "brightness": 1.0,
-            "tint": 0.5,
-            "shade": 0.5,
-        }
+        self.params_default = _wheel_palette()
+        self.params_no_grey = _wheel_palette(cols=8, rows=5, grey=False,
+                                             tint=0.5, shade=0.5)
 
     def test_cell_count(self):
         self.assertEqual(palette.cell_count(self.params_default), (17, 9))
@@ -53,13 +40,13 @@ class TestPalette(unittest.TestCase):
             self.assertEqual(a, 1.0)
             lum.append(_luminance((r, g, b)))
         self.assertEqual(lum, sorted(lum, reverse=True))
-        # White to black, as in 1.x (the Greyscale group's own L range).
+        # White to black (the Greyscale group's own L range), independent
+        # of the palette's range.
         for v in palette.color_at(0, 0, self.params_default)[:3]:
             self.assertAlmostEqual(v, 1.0, places=4)
         for v in palette.color_at(0, rows - 1, self.params_default)[:3]:
             self.assertAlmostEqual(v, 0.0, places=4)
-        # Independent of brightness.
-        dark = dict(self.params_default, brightness=0.5)
+        dark = dict(self.params_default, l_top=0.5)
         self.assertEqual(palette.color_at(0, 0, dark), palette.color_at(0, 0, self.params_default))
 
     def test_color_at_bounds_and_validity(self):
@@ -107,19 +94,13 @@ class TestPalette(unittest.TestCase):
         self.assertLess(cool[0], neutral[0])
         self.assertGreater(cool[2], neutral[2])
 
-    def test_saturation_and_brightness(self):
-        grey = palette.color_at(3, 4, dict(self.params_default, saturation=0.0))
+    def test_chroma_and_lightness(self):
+        grey = palette.color_at(3, 4, _wheel_palette(chroma=0.0))
         self.assertAlmostEqual(grey[0], grey[1], places=4)
         self.assertAlmostEqual(grey[1], grey[2], places=4)
         bright = palette.color_at(3, 4, self.params_default)
-        dark = palette.color_at(3, 4, dict(self.params_default, brightness=0.5))
+        dark = palette.color_at(3, 4, _wheel_palette(l_top=0.47, l_bottom=0.11))
         self.assertLess(_luminance(dark), _luminance(bright))
-
-    def test_color_mode_is_ignored(self):
-        # LPC 2.0 has no HSV mode; old scenes keep their grid, not their colors.
-        hsv = dict(self.params_default, color_mode="HSV")
-        oklch = dict(self.params_default, color_mode="OKLCH")
-        self.assertEqual(palette.build_pixels(hsv), palette.build_pixels(oklch))
 
 
 if __name__ == "__main__":

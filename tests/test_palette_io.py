@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Frank Winter <https://www.frankwinter.com/>
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Palette I/O: 1.x values, JSON form, bundled templates, labels (plan step 3)."""
+"""Palette I/O: JSON form, bundled templates, labels (plan step 3)."""
 
 import copy
 import json
@@ -18,22 +18,6 @@ from model import palette as P
 from model import templates as T
 from picker import interface as I
 from test_palette_groups import _stylized_palette
-
-
-class TestLegacy(unittest.TestCase):
-    def test_missing_values_use_1x_defaults(self):
-        self.assertEqual(P.params_from_legacy({}), P.LEGACY_DEFAULTS)
-        params = P.params_from_legacy({"cols": 12, "brightness": 0.5, "color_mode": 1})
-        self.assertEqual(params["cols"], 12)
-        self.assertEqual(params["brightness"], 0.5)
-        self.assertEqual(params["rows"], 9)
-        self.assertNotIn("color_mode", params)
-
-    def test_has_legacy_values(self):
-        self.assertFalse(P.has_legacy_values({}))
-        self.assertFalse(P.has_legacy_values({"rows": 7, "tint": 0.3}))  # also 2.0 keys
-        self.assertTrue(P.has_legacy_values({"cols": 16}))
-        self.assertTrue(P.has_legacy_values({"color_mode": 0}))
 
 
 class TestJson(unittest.TestCase):
@@ -86,17 +70,52 @@ class TestTemplates(unittest.TestCase):
     def test_bundled(self):
         slugs = dict(T.list_templates())
         self.assertEqual(slugs, {"classic_color_wheel": "Classic Color Wheel",
-                                 "stylized_3d": "Stylized 3D"})
+                                 "industrial_planet": "Industrial Planet",
+                                 "stylized_3d": "Stylized 3D",
+                                 "toon_outdoor": "Toon Outdoor"})
         self.assertIn(T.DEFAULT_TEMPLATE, slugs)
+        self.assertEqual(T.template_name("industrial_planet"), "Industrial Planet")
+        self.assertEqual(T.template_name("nope"), "nope")
 
     def test_stylized_is_the_approved_palette(self):
+        # The plan's palette, retuned for the color space fix: 7 rows,
+        # lighter top / darker bottom limits within a plausible albedo, less
+        # tint, Nature chroma +25 %, grey as one column with a darker range.
+        approved = _stylized_palette()
+        approved.update(rows=7, l_top=0.9, l_bottom=0.33, tint=0.5)
+        neutral, nature, _accent = approved["groups"]
+        neutral.update(l_top=0.95, l_bottom=0.28)
+        neutral["columns"][0]["span"] = 1
+        nature["chroma"] = 0.0625
+        for column in nature["columns"]:
+            if column["chroma"] is not None:
+                column["chroma"] = round(column["chroma"] * 1.25, 4)
         self.assertEqual(P.build_pixels(T.load_template("stylized_3d")),
-                         P.build_pixels(_stylized_palette()))
+                         P.build_pixels(approved))
 
-    def test_classic_is_1x_default_converted(self):
-        self.assertEqual(
-            P.build_pixels(T.load_template("classic_color_wheel")),
-            P.build_pixels(P.palette_from_params(P.LEGACY_DEFAULTS)))
+    def test_classic_layout(self):
+        # One grey column plus 16 evenly spaced hues, 9 rows.
+        classic = T.load_template("classic_color_wheel")
+        self.assertEqual(P.cell_count(classic), (17, 9))
+        self.assertEqual([(name, n) for name, _x, n in P.group_ranges(classic)],
+                         [("Greyscale", 1), ("Color Wheel", 16)])
+        hues = [c["hue"] for c, _part in P.grid_columns(classic)][1:]
+        self.assertEqual(hues, [i * 22.5 for i in range(16)])
+
+    def test_templates_stay_plausible_albedo(self):
+        # Every cell between ~40 and ~250 (8-bit sRGB luminance): no black
+        # or white albedo, which no lit surface has.
+        def lin(c):
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+        for slug, _name in T.list_templates():
+            pal = T.load_template(slug)
+            cols, rows = P.cell_count(pal)
+            for x in range(cols):
+                for y in range(rows):
+                    r, g, b = (lin(v) for v in P.color_at(x, y, pal)[:3])
+                    lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                    with self.subTest(slug=slug, x=x, y=y):
+                        self.assertTrue(0.02 <= lum <= 0.95, lum)
 
     def test_file_errors(self):
         with self.assertRaises(ValueError):
@@ -134,11 +153,6 @@ class TestSceneFallback(unittest.TestCase):
     def test_untouched_scene_gets_default_template(self):
         pal = I.params_from_scene(self._scene({}))
         self.assertEqual(P.build_pixels(pal), P.build_pixels(T.load_template(T.DEFAULT_TEMPLATE)))
-
-    def test_1x_scene_is_converted(self):
-        pal = I.params_from_scene(self._scene({"cols": 8, "rows": 6}))
-        self.assertEqual(P.cell_count(pal), (9, 6))
-        self.assertEqual(P.group_ranges(pal)[1][0], P.CLASSIC_WHEEL_GROUP)
 
     def test_default_palette_is_a_copy(self):
         a = I.default_palette()

@@ -17,8 +17,9 @@ Panel layout:
       [no header]        UV-fix warning (when needed), the Export target +
                          button, and the Settings button
 
-The rarely-edited values -- the palette (template, rows, lightness, groups
-and their columns, tint/shade, artwork) and the global material values --
+The rarely-edited values -- the palette (template, rows, lightness,
+tint/shade, hue shift/warmth, then groups and their columns) and the
+global material values --
 live in the modal "Settings" dialog (`LPC_OT_palette_settings`,
 `invoke_props_dialog`). Confirming it commits palette layout changes,
 remapping painted faces (ops/palette.py).
@@ -75,6 +76,7 @@ class LPC_OT_palette_settings(bpy.types.Operator):
         if picker_interface.ensure_palette_initialized(scene):
             picker_interface.refresh_palette_consumers(context)
         self._backup = picker_interface.params_from_scene(scene)
+        self._name_backup = scene.lpc_palette_params.name
         self._globals_backup = {
             key: getattr(scene.lpc_globals, key) for key in self._GLOBAL_KEYS
         }
@@ -84,6 +86,7 @@ class LPC_OT_palette_settings(bpy.types.Operator):
         from ..picker import interface as picker_interface
 
         picker_interface.write_palette(context.scene.lpc_palette_params, self._backup)
+        context.scene.lpc_palette_params.name = self._name_backup
         picker_interface.refresh_palette_consumers(context)
         # Restoring triggers the globals' update callbacks -> the preview
         # material is rolled back too.
@@ -95,23 +98,24 @@ class LPC_OT_palette_settings(bpy.types.Operator):
         layout = self.layout
         p = context.scene.lpc_palette_params
 
-        if p.legacy_notice:
-            box = layout.box()
-            col = box.column(align=True)
-            col.label(text="Palette converted from LPC 1.x.", icon="INFO")
-            col.label(text="Painted faces kept their cells; colors may differ.")
-            box.operator("lpc.palette_dismiss_notice")
-
-        row = layout.row()
-        row.label(text="Palette")
+        # Top-down: palette-wide values, then groups, then the columns of
+        # the selected group; the material values (not part of the
+        # palette) come last.
+        palette_box = layout.box()
+        row = palette_box.row()
+        row.prop(p, "name", text="", icon="COLOR")
         row.menu("LPC_MT_palette_templates", text="Templates", icon="PRESET")
-
-        grid_box = layout.box()
-        row = grid_box.row(align=True)
-        row.prop(p, "rows")
-        row = grid_box.row(align=True)
+        col = palette_box.column(align=True)
+        col.prop(p, "rows")
+        row = col.row(align=True)
         row.prop(p, "l_top")
         row.prop(p, "l_bottom")
+        row = col.row(align=True)
+        row.prop(p, "tint")
+        row.prop(p, "shade")
+        row = col.row(align=True)
+        row.prop(p, "hue_shift")
+        row.prop(p, "warmth")
 
         # Groups
         groups_box = layout.box()
@@ -161,20 +165,8 @@ class LPC_OT_palette_settings(bpy.types.Operator):
                 sub.active = column.use_chroma
                 sub.prop(column, "chroma")
 
-        range_box = layout.box()
-        range_box.label(text="Tint / Shade")
-        row = range_box.row(align=True)
-        row.prop(p, "tint")
-        row.prop(p, "shade")
-
-        art_box = layout.box()
-        art_box.label(text="Artwork")
-        row = art_box.row(align=True)
-        row.prop(p, "hue_shift")
-        row.prop(p, "warmth")
-
         glob_box = layout.box()
-        glob_box.label(text="Globals")
+        glob_box.label(text="Material (all presets)")
         col = glob_box.column(align=True)
         col.prop(context.scene.lpc_globals, "emission_factor")
         col.prop(context.scene.lpc_globals, "clearcoat_roughness")
@@ -248,9 +240,15 @@ class LPC_PT_palette_panel(bpy.types.Panel):
 
         result = context.window_manager.lpc_picker_result
         row = layout.row(align=True)
-        row.prop(result, "color", text="")
-        row.prop(result, "x", text="X")
-        row.prop(result, "y", text="Y")
+        # The column name needs the room: a narrow swatch, the row as a bare
+        # number (its tooltip says "Row").
+        swatch = row.row(align=True)
+        swatch.ui_units_x = 1.2
+        swatch.prop(result, "color", text="")
+        row.prop(result, "column", text="")
+        row_num = row.row(align=True)
+        row_num.ui_units_x = 2.2
+        row_num.prop(result, "y", text="")
         # Palette-grid picker -- a colour/palette icon (the EYEDROPPER is
         # reserved for Sample, which actually samples a face).
         row.operator("lpc.modal_palette_picker", text="", icon="COLOR")
@@ -346,8 +344,6 @@ class LPC_PT_footer(bpy.types.Panel):
         export_sub.alert = export_exporter.is_export_dirty(context.scene)
         export_sub.operator("lpc.export", text="", icon="EXPORT")
 
-        if context.scene.lpc_palette_params.legacy_notice:
-            layout.label(text="Palette converted from LPC 1.x", icon="INFO")
         layout.operator(
             "lpc.palette_settings", text="Settings...", icon="PREFERENCES"
         )

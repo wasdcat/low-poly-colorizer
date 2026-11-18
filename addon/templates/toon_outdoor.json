@@ -1,0 +1,205 @@
+{
+  "version": 2,
+  "name": "Toon Outdoor",
+  "palette": {
+    "rows": 5,
+    "l_top": 0.9,
+    "l_bottom": 0.33,
+    "tint": 0.45,
+    "shade": 0.55,
+    "hue_shift": 0.6,
+    "warmth": 0.15,
+    "groups": [
+      {
+        "name": "Ground",
+        "chroma": 0.06,
+        "columns": [
+          {
+            "id": "soil",
+            "name": "Soil",
+            "hue": 50.0,
+            "chroma": 0.055
+          },
+          {
+            "id": "clay",
+            "name": "Clay",
+            "hue": 40.0,
+            "chroma": 0.085
+          },
+          {
+            "id": "path",
+            "name": "Path",
+            "hue": 75.0,
+            "chroma": 0.06
+          },
+          {
+            "id": "sand",
+            "name": "Sand",
+            "hue": 88.0,
+            "chroma": 0.07
+          },
+          {
+            "id": "rock",
+            "name": "Rock",
+            "hue": 70.0,
+            "chroma": 0.018
+          },
+          {
+            "id": "stone",
+            "name": "Stone",
+            "hue": 250.0,
+            "chroma": 0.018
+          }
+        ]
+      },
+      {
+        "name": "Foliage",
+        "chroma": 0.12,
+        "columns": [
+          {
+            "id": "meadow",
+            "name": "Meadow",
+            "hue": 120.0,
+            "chroma": 0.13
+          },
+          {
+            "id": "grass",
+            "name": "Grass",
+            "hue": 132.0
+          },
+          {
+            "id": "leaf",
+            "name": "Leaf",
+            "hue": 142.0,
+            "chroma": 0.11
+          },
+          {
+            "id": "moss",
+            "name": "Moss",
+            "hue": 115.0,
+            "chroma": 0.085
+          },
+          {
+            "id": "pine",
+            "name": "Pine",
+            "hue": 165.0,
+            "chroma": 0.075
+          },
+          {
+            "id": "sage",
+            "name": "Sage",
+            "hue": 150.0,
+            "chroma": 0.045
+          }
+        ]
+      },
+      {
+        "name": "Autumn",
+        "chroma": 0.13,
+        "columns": [
+          {
+            "id": "gold",
+            "name": "Gold",
+            "hue": 85.0,
+            "chroma": 0.13
+          },
+          {
+            "id": "amber",
+            "name": "Amber",
+            "hue": 62.0
+          },
+          {
+            "id": "maple",
+            "name": "Maple",
+            "hue": 35.0
+          }
+        ]
+      },
+      {
+        "name": "Wood",
+        "chroma": 0.05,
+        "columns": [
+          {
+            "id": "bark",
+            "name": "Bark",
+            "hue": 55.0,
+            "chroma": 0.04
+          },
+          {
+            "id": "timber",
+            "name": "Timber",
+            "hue": 68.0,
+            "chroma": 0.07
+          }
+        ]
+      },
+      {
+        "name": "Water & Sky",
+        "chroma": 0.08,
+        "l_top": 0.95,
+        "l_bottom": 0.42,
+        "columns": [
+          {
+            "id": "sky",
+            "name": "Sky",
+            "hue": 240.0,
+            "chroma": 0.075
+          },
+          {
+            "id": "water",
+            "name": "Water",
+            "hue": 215.0,
+            "chroma": 0.09
+          },
+          {
+            "id": "lake",
+            "name": "Lake",
+            "hue": 195.0,
+            "chroma": 0.07
+          },
+          {
+            "id": "snow",
+            "name": "Snow",
+            "hue": 245.0,
+            "chroma": 0.02
+          }
+        ]
+      },
+      {
+        "name": "Flowers",
+        "chroma": 0.16,
+        "columns": [
+          {
+            "id": "poppy",
+            "name": "Poppy",
+            "hue": 27.0
+          },
+          {
+            "id": "sun",
+            "name": "Sun",
+            "hue": 95.0,
+            "chroma": 0.15
+          },
+          {
+            "id": "heather",
+            "name": "Heather",
+            "hue": 330.0,
+            "chroma": 0.13
+          },
+          {
+            "id": "lavender",
+            "name": "Lavender",
+            "hue": 295.0,
+            "chroma": 0.12
+          },
+          {
+            "id": "cornflower",
+            "name": "Cornflower",
+            "hue": 262.0,
+            "chroma": 0.14
+          }
+        ]
+      }
+    ]
+  }
+}

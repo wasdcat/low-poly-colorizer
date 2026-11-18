@@ -10,7 +10,7 @@ All controls in Low Poly Colorizer are organized within a compact sidebar panel 
 
 | No. | Section | Description |
 |:---:|:---|:---|
-| **①** | **Color Selection & Picker** | Displays the color and coordinates $(X, Y)$ of the active palette cell. Clicking the **Palette button** (color picker) opens the interactive modal picker in the viewport. Coordinates can also be edited numerically – this paints the current selection immediately, just like a click in the picker. |
+| **①** | **Color Selection & Picker** | Displays the color of the active palette cell, its column as a drop-down of the column names ("Group · Column", e.g. *Nature · Moss*) and next to it its row number (0 = lightest). Clicking the **Palette button** (color picker) opens the interactive modal picker in the viewport. Column and row can also be changed directly – this paints the current selection immediately, just like a click in the picker. |
 | **②** | **Selection Status** | Dynamically reports the target selection (*“14 faces in 1 object selected”* or *“1 object selected”*). Displays a warning if no preset is selected. |
 | **③** | **Preset List & Actions** | Lists all material presets. The number on the right indicates the **refcount** (how many faces currently use this preset). Includes buttons to add (`+`), delete (`-`), and access the actions menu (`▾`). |
 | **④** | **PBR Properties** | Controls the physical material properties (*Roughness*, *Metallic*, *Emission*, *Clearcoat*) of the **currently active preset**. Changes propagate instantly to all faces using this preset. |

@@ -13,8 +13,9 @@ Launches Blender in GUI mode with event simulation:
    (palette_picker_annotated.png with badges A..D;
    cropped from the screen change, badges placed from the geometry Blender reports).
 4. Extracts the inline palette picker icon (icon_picker.png, found as the bright glyph in the button).
-5. Opens the LPC Settings dialog (settings_annotated_1.png / _2.png with badges 1..3 / 4..6; the dialog and its
-   layout boxes are found in the screenshot, not at fixed coordinates).
+5. Opens the LPC Settings dialog (settings_annotated.png with badges 1..4: Palette, Groups,
+   Columns, Material; the dialog and its layout boxes are found in the screenshot, not at fixed
+   coordinates).
 6. Constructs and captures the LPC Set Material Geometry Node tree (geo_nodes_lpc_set_material.png).
 
 Requirements:
@@ -376,9 +377,18 @@ def on_timer():
             user_nt.links.new(lpc_node.outputs["Geometry"], out_node.inputs["Geometry"])
             
             if "Palette Cell X" in lpc_node.inputs:
-                lpc_node.inputs["Palette Cell X"].default_value = 4
+                # A menu socket (column names): pick the 5th item by name.
+                from addon.picker import interface as _iface
+                names = geometry_nodes.column_menu_labels(_iface.params_from_scene(scene))
+                try:
+                    lpc_node.inputs["Palette Cell X"].default_value = names[min(4, len(names) - 1)]
+                except Exception:
+                    pass
             if "Palette Cell Y" in lpc_node.inputs:
-                lpc_node.inputs["Palette Cell Y"].default_value = 2
+                try:
+                    lpc_node.inputs["Palette Cell Y"].default_value = 2
+                except Exception:
+                    pass
             if "Preset" in lpc_node.inputs:
                 try:
                     lpc_node.inputs["Preset"].default_value = "Solid"
@@ -584,10 +594,10 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
 
             save_to_targets(pal_canvas, "palette_picker_annotated.png", dpi=(144, 144))
 
-        # 5. Crop Settings Dialog (settings_annotated_1.png / _2.png)
-        #    Crop = the popup that appeared at the mouse position; badges 1..6
-        #    on the dialog's layout boxes (1 also covers the Palette row above
-        #    the first box).
+        # 5. Crop Settings Dialog (settings_annotated.png)
+        #    Crop = the popup that appeared at the mouse position; badges 1..4
+        #    on the dialog's layout boxes: Palette (name + Templates row
+        #    inside), Groups, Columns of ..., Material.
         if shot_settings_raw.is_file() and shot_settings_before.is_file():
             im_sett_raw = Image.open(shot_settings_raw)
             H = im_sett_raw.height
@@ -596,30 +606,21 @@ bpy.app.timers.register(on_timer, first_interval=0.5)
             sett_cropped = im_sett_raw.crop(sett_box).convert("RGBA")
             sw, sh = sett_cropped.size
 
-            boxes = layout_boxes(sett_cropped.convert("RGB"), expected=6)
-            if len(boxes) != 6:
-                print(f"WARNING: found {len(boxes)} layout boxes in the Settings dialog, expected 6")
+            boxes = layout_boxes(sett_cropped.convert("RGB"), expected=4)
+            if len(boxes) != 4:
+                print(f"WARNING: found {len(boxes)} layout boxes in the Settings dialog, expected 4")
 
-            # Two images, split between box 3 (Columns) and box 4 (Tint / Shade)
-            # so the tall dialog fits a manual page.
-            split = (boxes[2][1] + boxes[3][0]) // 2 if len(boxes) >= 4 else sh
-            parts = [(1, 0, split), (2, split, sh)] if split < sh else [(1, 0, sh)]
+            # One image: the dialog fits a manual page.
             extra_w = 56
-            for part, top, bottom in parts:
-                piece = sett_cropped.crop((0, top, sw, bottom))
-                ph_ = bottom - top
-                mask = Image.new("L", (sw, ph_), 0)
-                ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (sw - 1, ph_ - 1)], radius=6, fill=255)
-                piece.putalpha(mask)
-                canvas = Image.new("RGBA", (sw + extra_w, ph_), (0, 0, 0, 0))
-                canvas.paste(piece, (0, 0))
-                draw = ImageDraw.Draw(canvas)
-                for i, (y1, y2) in enumerate(boxes):
-                    if i == 0:  # include the "Palette  [Templates]" row above
-                        y1 = max(0, y1 - int(0.4 * (y2 - y1)))
-                    if top <= y1 and y2 <= bottom:
-                        bracket_v(draw, sw + 6, y1 - top, y2 - top, str(i + 1))
-                save_to_targets(canvas, f"settings_annotated_{part}.png", dpi=(144, 144))
+            mask = Image.new("L", (sw, sh), 0)
+            ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (sw - 1, sh - 1)], radius=6, fill=255)
+            sett_cropped.putalpha(mask)
+            canvas = Image.new("RGBA", (sw + extra_w, sh), (0, 0, 0, 0))
+            canvas.paste(sett_cropped, (0, 0))
+            draw = ImageDraw.Draw(canvas)
+            for i, (y1, y2) in enumerate(boxes):
+                bracket_v(draw, sw + 6, y1, y2, str(i + 1))
+            save_to_targets(canvas, "settings_annotated.png", dpi=(144, 144))
 
         # 6. Crop Geometry Node Graph (geo_nodes_lpc_set_material.png)
         if shot_node_raw.is_file():

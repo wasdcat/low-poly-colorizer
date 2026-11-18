@@ -15,8 +15,7 @@ Format (`version: 2`):
       "presets": [...]      optional, see ops.presets.presets_from_list
     }
 
-At least one of `palette` / `presets`. Files of LPC 1.x (`version: 1`,
-presets only) stay readable. Bundled palette templates
+At least one of `palette` / `presets`. Bundled palette templates
 (addon/templates/*.json) use the same format.
 
 Import: presets merge by name as before; the palette replaces the current
@@ -51,7 +50,7 @@ _KEYS = {"version", "name", "palette", "presets"}
 
 def write_lpc_file(palette=None, presets=None, name=None):
     """JSON text of an LPC file with the given sections (None = left out).
-    Preset values are rounded like the 1.x export (float32 noise)."""
+    Preset values are rounded (float32 noise)."""
     if palette is None and presets is None:
         raise ValueError("nothing to export")
     data = {"version": FILE_VERSION}
@@ -66,8 +65,8 @@ def write_lpc_file(palette=None, presets=None, name=None):
 
 def read_lpc_file(text):
     """Parse an LPC file: a dict with `name` (or None), `palette` (palette
-    dict or None) and `presets` (list of preset dicts or None). Accepts
-    `version: 2` and the presets-only `version: 1`. Raises ValueError."""
+    dict or None) and `presets` (list of preset dicts or None). Raises
+    ValueError."""
     try:
         data = json.loads(text)
     except json.JSONDecodeError as exc:
@@ -75,9 +74,6 @@ def read_lpc_file(text):
     if not isinstance(data, dict):
         raise ValueError("file must contain a JSON object")
     version = data.get("version")
-    if version == 1:
-        return {"name": None, "palette": None,
-                "presets": ops_presets.presets_from_json(text)}
     if version != FILE_VERSION:
         raise ValueError(f"unsupported version: {version!r}")
     unknown = set(data) - _KEYS
@@ -127,7 +123,8 @@ if bpy is not None:
             presets = ([ops_presets.preset_to_dict(p) for p in scene.lpc_presets]
                        if self.include_presets else None)
             try:
-                text = write_lpc_file(pal, presets)
+                name = scene.lpc_palette_params.name if self.include_palette else None
+                text = write_lpc_file(pal, presets, name=name or None)
             except ValueError as exc:
                 self.report({"ERROR"}, str(exc).capitalize())
                 return {"CANCELLED"}
@@ -148,7 +145,7 @@ if bpy is not None:
     class LPC_OT_file_import(bpy.types.Operator, ImportHelper):
         """Load an LPC JSON file: presets are merged by name, the palette
         replaces the current one (painted faces follow; unclear colors are
-        asked for). Also reads preset files of LPC 1.x"""
+        asked for)"""
 
         bl_idname = "lpc.file_import"
         bl_label = "Import LPC File"
@@ -187,7 +184,8 @@ if bpy is not None:
                     picker_interface.refresh_palette_consumers(context)
                 old = picker_interface.params_from_scene(scene)
                 picker_interface.write_palette(scene.lpc_palette_params, data["palette"])
-                scene.lpc_palette_params.legacy_notice = False
+                if data["name"]:
+                    scene.lpc_palette_params.name = data["name"]
                 status, msg = ops_palette.commit_palette(context, old)
                 messages.append("palette: " + (
                     msg or ("choose where unclear colors go" if status == "table"

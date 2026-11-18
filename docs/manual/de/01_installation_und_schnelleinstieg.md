@@ -22,7 +22,7 @@ Sobald das Addon aktiv ist, können Sie sofort loslegen:
 1. **Modell vorbereiten**: Mesh-Objekt im Viewport wählen (z. B. Standard-Würfel). Optional mit `Tab` in den **Edit Mode** wechseln, um Einzelflächen zu markieren.
 2. **N-Panel öffnen**: Im 3D-Viewport Taste `N` drücken und auf den Reiter **LPC** wechseln.
 3. **Preset wählen**: In der Preset-Liste ist standardmäßig *Solid* aktiv.
-4. **Palette öffnen**: Auf den **Paletten-Button** (Farbwähler) neben den Koordinaten klicken.
+4. **Palette öffnen**: Auf den **Paletten-Button** (Farbwähler) neben der Spaltenauswahl klicken.
 5. **Farbe zuweisen**: Beliebige Farbzelle anklicken. Der Picker schließt sich und die Auswahl wird in Echtzeit mit Farbe und Material-Look bemalt.
 
 > [!TIP]
