@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.2] - 2026-11-18
+
 ### Added
 - **Template *Industrial Planet***: 25 × 7 colors for a stylized sci-fi industrial world on a barren planet — groups *Neutral* (grey, steel, concrete; darker range for rubber), *Terrain* (basalt, rock, oxide, dust, ochre, lichen), *Snow & Ice* (own light range), *Industry* (hazard, safety, signal, cobalt, teal, copper, brass) and *Energy* (glow colors Volt, Sodium, Plasma, Neon, Acid, Ion with their own range for emission).
 - **Template *Toon Outdoor***: 26 × 5 natural colors for toon / low-poly outdoor scenes — groups *Ground* (soil, clay, path, sand, rock, stone), *Foliage* (meadow, grass, leaf, moss, pine, sage), *Autumn*, *Wood*, *Water & Sky* (own lighter range: sky, water, lake, snow) and *Flowers*. Low tint / shade keep color in highlights and shadows, hue shift gives warm lights and cool shadows.

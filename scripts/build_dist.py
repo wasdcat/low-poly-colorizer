@@ -7,7 +7,8 @@
 """Local build & distribution pipeline for Low Poly Colorizer.
 
 Workflow:
-1. (Optional) Bumps version across manifest, README, and manual configs (--version <X.Y.Z>).
+1. (Optional) Bumps version across manifest, README, and manual configs (--version <X.Y.Z>)
+   and turns the CHANGELOG's [Unreleased] section into the release section.
 2. Executes unit tests and version consistency checks (pytest).
 3. Generates user manuals (German and English) directly into /manual (git-tracked).
 4. Packages the Blender 4.2+ extension into dist/{id}-{version}.zip for local testing.
@@ -26,6 +27,7 @@ import subprocess
 import sys
 import tomllib
 import zipfile
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +66,25 @@ def bump_version(new_version: str):
     if not re.match(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", clean_version):
         print(
             f"ERROR: Invalid version format '{new_version}'. Expected semantic version (e.g. '1.1.0').",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # Check the CHANGELOG first: without documented changes nothing is touched.
+    changelog_file = ROOT / "CHANGELOG.md"
+    if not changelog_file.is_file():
+        print(f"ERROR: {changelog_file.relative_to(ROOT)} not found.", file=sys.stderr)
+        sys.exit(1)
+    raw = changelog_file.read_bytes().decode("utf-8")
+    newline = "\r\n" if "\r\n" in raw else "\n"
+    changelog, cl_status = release_changelog(raw.replace("\r\n", "\n"), clean_version,
+                                             date.today().isoformat())
+    if cl_status in ("missing", "empty"):
+        reason = ("has no [Unreleased] section" if cl_status == "missing"
+                  else "has an empty [Unreleased] section")
+        print(
+            f"ERROR: {changelog_file.relative_to(ROOT)} {reason}. Document the changes for "
+            f"{clean_version} under '## [Unreleased]' first. Nothing was changed.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -107,14 +128,36 @@ def bump_version(new_version: str):
     en_yaml.write_text(content, encoding="utf-8")
     print(f"  [OK] Updated {en_yaml.relative_to(ROOT)}")
 
-    # Reminder for CHANGELOG.md
-    changelog_file = ROOT / "CHANGELOG.md"
-    if changelog_file.is_file():
-        cl_text = changelog_file.read_text(encoding="utf-8")
-        if f"[{clean_version}]" not in cl_text:
-            print(f"  [NOTE] Remember to document changes for [{clean_version}] in CHANGELOG.md!")
+    # 5. CHANGELOG.md: the [Unreleased] section becomes the release
+    if cl_status == "released":
+        changelog_file.write_bytes(changelog.replace("\n", newline).encode("utf-8"))
+        print(f"  [OK] Updated {changelog_file.relative_to(ROOT)}: "
+              f"[Unreleased] -> [{clean_version}], new empty [Unreleased]")
+    else:  # "exists": a repeated bump to the same version
+        print(f"  [OK] {changelog_file.relative_to(ROOT)} already has [{clean_version}]")
 
     print(f"[OK] Version set to {clean_version} across all files.\n")
+
+
+def release_changelog(text: str, version: str, day: str):
+    """Turn the `## [Unreleased]` section of a Keep-a-Changelog `text` into
+    `## [<version>] - <day>` and put a new, empty `## [Unreleased]` above it.
+
+    Returns (text, status): "released" (changed), "exists" (a section for
+    `version` is already there -- unchanged, so a repeated bump is a no-op),
+    "missing" (no [Unreleased] section) or "empty" (an [Unreleased] section
+    without content) -- both unchanged; the caller aborts on them."""
+    if re.search(rf"(?m)^## \[{re.escape(version)}\]", text):
+        return text, "exists"
+    match = re.search(r"(?m)^## \[Unreleased\][^\n]*$", text)
+    if match is None:
+        return text, "missing"
+    following = re.search(r"(?m)^## \[", text[match.end():])
+    body = text[match.end():match.end() + following.start()] if following else text[match.end():]
+    if not body.strip():
+        return text, "empty"
+    released = f"## [Unreleased]\n\n## [{version}] - {day}"
+    return text[:match.start()] + released + text[match.end():], "released"
 
 
 def run_tests():

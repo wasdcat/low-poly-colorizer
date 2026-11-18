@@ -17,7 +17,10 @@ Executes the complete distribution build and validation cycle:
 # Standard build with current version:
 python scripts/build_dist.py
 
-# Set new version across all files (manifest, README, manual configs), test, compile, and build:
+# Set new version across all files (manifest, README, manual configs), turn the CHANGELOG's
+# [Unreleased] section into [1.1.0] - <today> (with a new empty [Unreleased] above), test, compile, and build.
+# Aborts before changing anything if the CHANGELOG has no [Unreleased] section or an empty one
+# (a repeated run with the same version is fine):
 python scripts/build_dist.py --version 1.1.0
 
 # Build extension ZIP only (skip tests and manual generation):
@@ -28,11 +31,12 @@ python scripts/build_dist.py --skip-tests --skip-manuals
 
 ## 2. `capture_screenshots.py` (Screenshot Automation)
 
-Launches Blender in GUI mode with event simulation (`--enable-event-simulate`), captures all documentation screens, and renders precision Pillow annotations and numbered badges (①–⑥, Ⓐ–Ⓓ).
+Launches Blender in GUI mode with event simulation (`--enable-event-simulate`), captures all documentation screens, and renders precision Pillow annotations and numbered badges (N-Panel ①–⑥, Settings ①–④, Picker Ⓐ–Ⓓ).
 
 ### Requirements
 - Blender 4.2+ or 5.x installed and discoverable.
-- Calibrated for 4K display resolution (3840×2160) with Blender maximized due to simulated UI coordinates.
+- The N-Panel crop and the LPC tab click use fixed coordinates, calibrated for a maximized Blender window of 5120×1351 px (the picker and Settings crops adapt to any size).
+- It drives the **installed** extension, not the repository code — install the current build first.
 
 ### Usage
 
