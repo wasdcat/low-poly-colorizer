@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Stride export** (*Stride Materials*, multicolor only): writes `lpc_multicolor.sdmat` plus `lpc_palette.sdtex` / `lpc_preset_lut.sdtex` texture assets next to the two PNGs, a `README.md` and the palette cheatsheet. The material uses Stride's stock texture nodes (point filtering, palette from `TEXCOORD0`, preset LUT from `TEXCOORD1`) for diffuse, roughness, metalness and emission — no custom shader. The texture assets switch off compression, mipmaps and premultiplied alpha, and sample the palette as sRGB and the LUT as raw data. Every asset carries a stable GUID derived from its file name. Not yet supported: the singlecolor variant and the preset's clearcoat.
+
+### Changed
+- **Export targets are configured entirely in the registry**: the stable-ID format (`id_format`: Godot `uid://…` or GUID) and the sidecar suffixes (`sidecar_suffixes`) are fields of a template set instead of Godot constants in the exporter. A new engine is a template folder plus a registry entry, and a new ID format is one function in `ID_FORMATS`. The Godot export is byte-identical.
+- The export button shows as out of date once after the update (the render context gained the preset LUT addressing used by Stride).
+
 ## [2.0.2] - 2026-11-18
 
 ### Added

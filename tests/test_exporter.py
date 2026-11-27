@@ -244,16 +244,50 @@ class TestStableUid(unittest.TestCase):
         self.assertEqual(encode(1000000), "uid://0pb1")
         self.assertEqual(encode(2**63 - 1), "uid://d4n4ub6itg400")
 
-    def test_uid_is_stable_valid_and_name_dependent(self):
-        a = exporter.stable_uid("lpc_palette.png")
-        self.assertEqual(a, exporter.stable_uid("lpc_palette.png"))
-        self.assertNotEqual(a, exporter.stable_uid("lpc_preset_lut.png"))
-        self.assertNotEqual(a, exporter.stable_uid("other_palette.png"))  # prefix matters
+    def test_godot_uid_is_stable_valid_and_name_dependent(self):
+        a = exporter.godot_uid("lpc_palette.png")
+        self.assertEqual(a, exporter.godot_uid("lpc_palette.png"))
+        self.assertNotEqual(a, exporter.godot_uid("lpc_preset_lut.png"))
+        self.assertNotEqual(a, exporter.godot_uid("other_palette.png"))  # prefix matters
         self.assertRegex(a, r"^uid://[a-y0-8]{1,13}$")
         n = 0
         for ch in a[len("uid://"):]:
             n = n * 34 + exporter._UID_ALPHABET.index(ch)
         self.assertLess(n, 2**63)
+
+    def test_godot_uid_unchanged_by_generalization(self):
+        # Pinned: existing Godot projects reference these exact UIDs.
+        self.assertEqual(exporter.godot_uid("lpc_palette.png"),
+                         self._pinned_godot_uid("lpc_palette.png"))
+
+    @staticmethod
+    def _pinned_godot_uid(filename):
+        import hashlib
+        digest = hashlib.sha256(("lpc-export:" + filename).encode("utf-8")).digest()
+        n = int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+        text = ""
+        while True:
+            n, d = divmod(n, 34)
+            text = "abcdefghijklmnopqrstuvwxy012345678"[d] + text
+            if n == 0:
+                return "uid://" + text
+
+    def test_guid_is_stable_well_formed_and_name_dependent(self):
+        import uuid
+        a = exporter.stable_guid("lpc_multicolor.sdmat")
+        self.assertEqual(a, exporter.stable_guid("lpc_multicolor.sdmat"))
+        self.assertNotEqual(a, exporter.stable_guid("lpc_palette.sdtex"))
+        self.assertNotEqual(a, exporter.stable_guid("other_multicolor.sdmat"))
+        self.assertRegex(a, r"^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+        parsed = uuid.UUID(a)
+        self.assertEqual(parsed.version, 5)
+        self.assertEqual(parsed.variant, uuid.RFC_4122)
+
+    def test_stable_id_dispatches_on_format(self):
+        self.assertEqual(exporter.stable_id("x.png", "godot_uid"), exporter.godot_uid("x.png"))
+        self.assertEqual(exporter.stable_id("x.png", "guid"), exporter.stable_guid("x.png"))
+        with self.assertRaises(ValueError):
+            exporter.stable_id("x.png", "nope")
 
     def test_sidecars_share_their_subjects_uid(self):
         entries = [
@@ -262,10 +296,19 @@ class TestStableUid(unittest.TestCase):
             "{{prefix}}multicolor.gdshader.uid.tpl",
             "{{prefix}}multicolor.tres.tpl",
         ]
-        uids = exporter.uid_context(entries, {"prefix": "lpc_"})
+        uids = exporter.uid_context(entries, {"prefix": "lpc_"}, "godot_uid", (".import", ".uid"))
         self.assertEqual(set(uids), {"uid_palette_png", "uid_multicolor_gdshader", "uid_multicolor_tres"})
-        self.assertEqual(uids["uid_palette_png"], exporter.stable_uid("lpc_palette.png"))
-        self.assertEqual(uids["uid_multicolor_gdshader"], exporter.stable_uid("lpc_multicolor.gdshader"))
+        self.assertEqual(uids["uid_palette_png"], exporter.godot_uid("lpc_palette.png"))
+        self.assertEqual(uids["uid_multicolor_gdshader"], exporter.godot_uid("lpc_multicolor.gdshader"))
+
+    def test_without_sidecar_suffixes_every_file_has_its_own_id(self):
+        entries = ["{{prefix}}palette.png.import.tpl", "{{prefix}}palette.sdtex.tpl"]
+        uids = exporter.uid_context(entries, {"prefix": "lpc_"}, "guid")
+        self.assertEqual(uids["uid_palette_png_import"], exporter.stable_guid("lpc_palette.png.import"))
+        self.assertEqual(uids["uid_palette_sdtex"], exporter.stable_guid("lpc_palette.sdtex"))
+
+    def test_no_id_format_no_placeholders(self):
+        self.assertEqual(exporter.uid_context(["{{prefix}}a.txt.tpl"], {"prefix": "lpc_"}, None), {})
 
 
 class TestPresetArray(unittest.TestCase):
@@ -295,6 +338,10 @@ class TestRegistryTextures(unittest.TestCase):
         self.assertTrue(registry.writes_palette_texture("godot"))
         self.assertTrue(registry.writes_preset_texture("godot"))
 
+    def test_stride_ships_both_textures(self):
+        self.assertTrue(registry.writes_palette_texture("stride"))
+        self.assertTrue(registry.writes_preset_texture("stride"))
+
     def test_flags_default_to_true_and_unknown_set_writes_nothing(self):
         original = registry.TEMPLATE_SETS
         try:
@@ -303,8 +350,46 @@ class TestRegistryTextures(unittest.TestCase):
             self.assertTrue(registry.writes_preset_texture("plain"))
             self.assertFalse(registry.writes_palette_texture("nope"))
             self.assertFalse(registry.writes_preset_texture("nope"))
+            # IDs and sidecars are opt-in per set
+            self.assertIsNone(registry.id_format("plain"))
+            self.assertEqual(registry.sidecar_suffixes("plain"), ())
+            self.assertIsNone(registry.id_format("nope"))
+            self.assertEqual(registry.sidecar_suffixes("nope"), ())
         finally:
             registry.TEMPLATE_SETS = original
+
+
+class TestRegistryConsistency(unittest.TestCase):
+    """Every registered set must be exportable -- checked for all of them, so
+    a future engine's entry is covered without writing a test for it."""
+
+    def test_ids_unique_and_folders_exist(self):
+        ids = [e["id"] for e in registry.TEMPLATE_SETS]
+        self.assertEqual(len(ids), len(set(ids)))
+        for set_id in ids:
+            tdir = registry.template_dir(set_id)
+            self.assertTrue(os.path.isdir(tdir), set_id)
+            self.assertTrue(any(n.endswith(".tpl") for n in os.listdir(tdir)), set_id)
+
+    def test_godot_stays_first(self):
+        # lpc_export_target is an EnumProperty without explicit numbers:
+        # scenes store the item's index, so existing entries keep their place.
+        self.assertEqual(registry.TEMPLATE_SETS[0]["id"], "godot")
+
+    def test_id_formats_are_known(self):
+        for entry in registry.TEMPLATE_SETS:
+            fmt = registry.id_format(entry["id"])
+            if fmt is not None:
+                self.assertIn(fmt, exporter.ID_FORMATS, entry["id"])
+
+    def test_every_set_renders_completely(self):
+        context = exporter.build_context(_scene())
+        for entry in registry.TEMPLATE_SETS:
+            with tempfile.TemporaryDirectory() as out_dir:
+                for name in exporter.render_set(entry["id"], out_dir, context):
+                    with open(os.path.join(out_dir, name), encoding="utf-8") as f:
+                        self.assertNotRegex(f.read(), r"\{\{\w+\}\}",
+                                            f"unresolved placeholder in {entry['id']}/{name}")
 
 
 class TestGodotSet(unittest.TestCase):
@@ -347,10 +432,10 @@ class TestGodotSet(unittest.TestCase):
         for name in ("lpc_common.gdshaderinc", "lpc_multicolor.gdshader",
                      "lpc_singlecolor.gdshader", "lpc_singlecolor_resource.gd",
                      "lpc_palette_color_resource.gd"):
-            self.assertEqual(texts[name + ".uid"], exporter.stable_uid(name) + "\n")
+            self.assertEqual(texts[name + ".uid"], exporter.godot_uid(name) + "\n")
         for png in (exporter.PALETTE_IMAGE_FILENAME, exporter.PRESET_LUT_IMAGE_FILENAME):
             imp = texts[png + ".import"]
-            self.assertIn(f'uid="{exporter.stable_uid(png)}"', imp)
+            self.assertIn(f'uid="{exporter.godot_uid(png)}"', imp)
             for setting in ("compress/mode=0", "mipmaps/generate=false",
                             "process/fix_alpha_border=false", "detect_3d/compress_to=0"):
                 self.assertIn(setting, imp)
@@ -359,10 +444,10 @@ class TestGodotSet(unittest.TestCase):
         texts = self._render()
         for variant in ("multicolor", "singlecolor"):
             tres = texts[f"lpc_{variant}.tres"]
-            self.assertIn(f'uid="{exporter.stable_uid(f"lpc_{variant}.tres")}"', tres.splitlines()[0])
-            self.assertIn(f'uid="{exporter.stable_uid(f"lpc_{variant}.gdshader")}"', tres)
-            self.assertIn(f'uid="{exporter.stable_uid("lpc_palette.png")}"', tres)
-            self.assertIn(f'uid="{exporter.stable_uid("lpc_preset_lut.png")}"', tres)
+            self.assertIn(f'uid="{exporter.godot_uid(f"lpc_{variant}.tres")}"', tres.splitlines()[0])
+            self.assertIn(f'uid="{exporter.godot_uid(f"lpc_{variant}.gdshader")}"', tres)
+            self.assertIn(f'uid="{exporter.godot_uid("lpc_palette.png")}"', tres)
+            self.assertIn(f'uid="{exporter.godot_uid("lpc_preset_lut.png")}"', tres)
 
     def test_singlecolor_extends_palette_color(self):
         texts = self._render()
@@ -384,3 +469,89 @@ class TestGodotSet(unittest.TestCase):
         self.assertIn('if property.name == "color":', base)
         self.assertIn("PROPERTY_USAGE_EDITOR | PROPERTY_USAGE_READ_ONLY", base)
         self.assertNotIn("PROPERTY_USAGE_STORAGE", base)
+
+
+class TestStrideSet(unittest.TestCase):
+    def _render(self, scene=None):
+        context = exporter.build_context(scene or _scene())
+        with tempfile.TemporaryDirectory() as out_dir:
+            written = exporter.render_set("stride", out_dir, context)
+            texts = {}
+            for name in written:
+                with open(os.path.join(out_dir, name), encoding="utf-8") as f:
+                    texts[name] = f.read()
+        return texts
+
+    def test_written_files(self):
+        self.assertEqual(set(self._render()), {
+            "README.md", "lpc_multicolor.sdmat",
+            "lpc_palette.sdtex", "lpc_preset_lut.sdtex",
+        })
+
+    def test_assets_carry_their_stable_guid(self):
+        texts = self._render()
+        for name, tag in (("lpc_multicolor.sdmat", "!MaterialAsset"),
+                          ("lpc_palette.sdtex", "!Texture"),
+                          ("lpc_preset_lut.sdtex", "!Texture")):
+            lines = texts[name].splitlines()
+            self.assertEqual(lines[0], tag)
+            self.assertEqual(lines[1], "Id: " + exporter.stable_guid(name))
+
+    def test_no_bom_in_yaml_assets(self):
+        for name, text in self._render().items():
+            if name.endswith((".sdmat", ".sdtex")):
+                self.assertFalse(text.startswith("\ufeff"), name)
+
+    def test_textures_point_at_their_png_with_data_safe_settings(self):
+        texts = self._render()
+        palette = texts["lpc_palette.sdtex"]
+        lut = texts["lpc_preset_lut.sdtex"]
+        self.assertIn("Source: !file " + exporter.PALETTE_IMAGE_FILENAME, palette)
+        self.assertIn("Source: !file " + exporter.PRESET_LUT_IMAGE_FILENAME, lut)
+        for text in (palette, lut):
+            for setting in ("IsCompressed: false", "GenerateMipmaps: false",
+                            "PremultiplyAlpha: false", "IsStreamable: false"):
+                self.assertIn(setting, text)
+        self.assertIn("UseSRgbSampling: true", palette)   # sRGB colors
+        self.assertIn("UseSRgbSampling: false", lut)      # raw data
+
+    def test_material_references_textures_by_guid(self):
+        sdmat = self._render()["lpc_multicolor.sdmat"]
+        palette_ref = f"Texture: {exporter.stable_guid('lpc_palette.sdtex')}:lpc_palette"
+        lut_ref = f"Texture: {exporter.stable_guid('lpc_preset_lut.sdtex')}:lpc_preset_lut"
+        self.assertEqual(sdmat.count(palette_ref), 2)   # diffuse + emissive
+        self.assertEqual(sdmat.count(lut_ref), 3)       # roughness, metalness, emission
+        self.assertEqual(sdmat.count("Filtering: Point"), 5)
+        self.assertNotIn("Filtering: Linear", sdmat)
+
+    def test_material_channels(self):
+        sdmat = self._render()["lpc_multicolor.sdmat"]
+        self.assertRegex(sdmat, r"(?s)MaterialGlossinessMapFeature.*?Channel: R.*?Invert: true")
+        self.assertRegex(sdmat, r"(?s)MaterialMetalnessMapFeature.*?Channel: G")
+        self.assertRegex(sdmat, r"(?s)ComputeBinaryScalar\s+Operator: Multiply.*?Channel: A"
+                                r".*?RightChild: !ComputeFloat\s+Value: 2.0")
+
+    def test_preset_lut_addresses_texel_centers(self):
+        # 3 presets: u = p / 3 + 1 / 6 -> texel centers 1/6, 1/2, 5/6
+        sdmat = self._render()["lpc_multicolor.sdmat"]
+        scales = re.findall(r"Scale: \{X: ([^,]+), Y: 0.0\}", sdmat)
+        offsets = re.findall(r"Offset: \{X: ([^,]+), Y: 0.5\}", sdmat)
+        self.assertEqual(len(scales), 3)
+        self.assertEqual(len(offsets), 3)
+        for scale, offset in zip(scales, offsets):
+            for p in range(3):
+                self.assertAlmostEqual(p * float(scale) + float(offset), (p + 0.5) / 3, places=12)
+
+    def test_palette_v_is_flipped(self):
+        # Same flip as lpc_sample_palette in the Godot set: LPC palette rows
+        # count bottom-up, the texture is sampled top-down.
+        sdmat = self._render()["lpc_multicolor.sdmat"]
+        self.assertEqual(sdmat.count("Scale: {X: 1.0, Y: -1.0}"), 2)
+        self.assertEqual(sdmat.count("Offset: {X: 0.0, Y: 1.0}"), 2)
+        self.assertEqual(sdmat.count("TexcoordIndex: Texcoord0"), 2)
+        self.assertEqual(sdmat.count("TexcoordIndex: Texcoord1"), 3)
+
+    def test_empty_preset_list(self):
+        sdmat = self._render(_scene([]))["lpc_multicolor.sdmat"]
+        self.assertIn("Scale: {X: 1.0, Y: 0.0}", sdmat)
+        self.assertIn("Offset: {X: 0.5, Y: 0.5}", sdmat)

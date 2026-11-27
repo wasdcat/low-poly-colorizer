@@ -24,16 +24,19 @@ array bodies (`palette_colors_gdscript`, `preset_values_glsl`), so a template
 can bake them into its source. The Godot set ships both textures and uses
 the palette array for GDScript only (its resource script's color_at).
 
-Every exported file can carry a STABLE ID (`stable_uid`): derived from its
+Every exported file can carry a STABLE ID (`stable_id`): derived from its
 output filename alone, so re-exporting -- into the same project or a fresh
 one, from any machine -- always writes the same ID for the same file and
-references by ID keep resolving. `render_set` puts one `uid_<name>`
-placeholder per file of the set into the context; a sidecar template
-(`<file>.import.tpl`, `<file>.uid.tpl`) shares the ID of the file it
+references by ID keep resolving. How the ID is spelled is the set's
+`id_format` (a key of `ID_FORMATS`: Godot's `uid://...`, a GUID for Stride,
+...). `render_set` puts one `uid_<name>` placeholder per file of the set into
+the context; a sidecar template (the set's `sidecar_suffixes`, e.g. Godot's
+`<file>.import.tpl`, `<file>.uid.tpl`) shares the ID of the file it
 describes, which is how a texture written by `write_textures` gets one too.
 
-Nothing here is Godot-specific -- the only thing that knows about a particular
-engine is its template folder + its registry entry. The render context is the
+Nothing here is engine-specific -- the only thing that knows about a
+particular engine is its template folder + its registry entry; a new ID
+spelling is one more function in `ID_FORMATS`. The render context is the
 engine-agnostic material state; a template uses whatever subset it needs and
 cross-file references (e.g. a material pointing at its shader file) use the
 same `{{prefix}}` placeholder as the filenames, so they stay in sync whatever
@@ -45,6 +48,7 @@ import hashlib
 import os
 import re
 import unicodedata
+import uuid
 
 try:
     import bpy
@@ -66,13 +70,13 @@ except ImportError:  # plain-python tests put the addon dir on sys.path
     from picker import interface as picker_interface
 
 # Filenames the palette + preset LUT textures are written under in the export
-# folder -- the .tres templates reference them via the {{palette_image_filename}}
-# / {{preset_lut_image_filename}} placeholders (build_context), so the names
+# folder -- templates reference them via the {{palette_image_filename}} /
+# {{preset_lut_image_filename}} placeholders (build_context), so the names
 # live here in one place and stay in sync between the written PNGs and the
-# ExtResource paths pointing at them. Prefixed via constants.PREFIX like every
-# other exported filename. A shipped texture's `.import` sidecar template is
-# named after it ({{prefix}}palette.png.import.tpl), so a rename must touch
-# both.
+# paths pointing at them (Godot's ExtResource, Stride's `Source:`). Prefixed
+# via constants.PREFIX like every other exported filename. A template named
+# after a texture (Godot's {{prefix}}palette.png.import.tpl) must follow a
+# rename too.
 PALETTE_IMAGE_FILENAME = constants.PREFIX + "palette.png"
 PRESET_LUT_IMAGE_FILENAME = constants.PREFIX + "preset_lut.png"
 # The labeled palette PNG for people (export/cheatsheet.py); its sidecar
@@ -328,6 +332,13 @@ def build_context(scene):
         # int/float uniforms, not vectors -- hence cell_x/y as two
         # separate placeholders rather than one vec2.
         "preset_count_max": str(preset_count - 1),
+        # The preset LUT's u for a list position p is (p + 0.5) / count --
+        # as scale + offset (u = p * scale + offset), for targets that cannot
+        # compute it in a shader but can transform a UV channel (Stride's
+        # texture material nodes read lpc_uv1.x = p that way). Full repr
+        # precision: the 6-decimal _fmt would drift by p * 5e-7.
+        "preset_texel_scale": repr(1.0 / preset_count),
+        "preset_texel_offset": repr(0.5 / preset_count),
         "palette_cols": str(cols),
         "palette_rows": str(rows),
         "palette_cols_max": str(cols - 1),
@@ -465,30 +476,27 @@ def _strip_tpl(name):
     return name[:-4] if name.endswith(".tpl") else name
 
 
-# Text form of a stable ID: Godot's ResourceUID encoding -- a non-negative
-# 63-bit integer in base 34, digits 'a'..'y' then '0'..'8' (no 'z', no '9'),
-# most significant first, prefixed "uid://". Verified against
-# ResourceUID.id_to_text in Godot 4.8 (0 -> uid://a, 34 -> uid://ba,
-# 2**63 - 1 -> uid://d4n4ub6itg400).
+def _id_digest(filename):
+    """The bytes every stable ID is cut from: a pure function of the output
+    filename -- which already includes the namespace prefix -- so every
+    export writes the same ID for the same file, on any machine, into any
+    project: re-exporting never orphans a reference, and two LPC exports with
+    different prefixes never collide. Two with the SAME prefix in one project
+    would; they cannot coexist anyway (see constants.PREFIX)."""
+    return hashlib.sha256(("lpc-export:" + filename).encode("utf-8")).digest()
+
+
+# Godot's ResourceUID text form -- a non-negative 63-bit integer in base 34,
+# digits 'a'..'y' then '0'..'8' (no 'z', no '9'), most significant first,
+# prefixed "uid://". Verified against ResourceUID.id_to_text in Godot 4.8
+# (0 -> uid://a, 34 -> uid://ba, 2**63 - 1 -> uid://d4n4ub6itg400).
 _UID_ALPHABET = "abcdefghijklmnopqrstuvwxy012345678"
 
-# A template whose output name ends in one of these describes ANOTHER file
-# (Godot: texture.png.import, script.gd.uid) and carries that file's ID.
-SIDECAR_SUFFIXES = (".import", ".uid")
 
-
-def stable_uid(filename):
-    """The stable ID of the exported file `filename` ("lpc_palette.png"), in
-    Godot's `uid://...` text form.
-
-    A pure function of the output filename -- which already includes the
-    namespace prefix -- so every export writes the same ID for the same file,
-    on any machine, into any project: re-exporting never orphans a reference,
-    and two LPC exports with different prefixes never collide. Two with the
-    SAME prefix in one project would; they cannot coexist anyway (their
-    GDScript class_names clash first, see constants.PREFIX)."""
-    digest = hashlib.sha256(("lpc-export:" + filename).encode("utf-8")).digest()
-    n = int.from_bytes(digest[:8], "big") & ((1 << 63) - 1)
+def godot_uid(filename):
+    """The stable ID of the exported file `filename` ("lpc_palette.png") in
+    Godot's `uid://...` text form."""
+    n = int.from_bytes(_id_digest(filename)[:8], "big") & ((1 << 63) - 1)
     text = ""
     while True:
         n, digit = divmod(n, len(_UID_ALPHABET))
@@ -497,30 +505,63 @@ def stable_uid(filename):
             return "uid://" + text
 
 
-def _uid_subject(name):
+def stable_guid(filename):
+    """The stable ID of the exported file `filename` as a lowercase
+    8-4-4-4-12 GUID (Stride's asset `Id:`, also what most other engines
+    take). Version/variant bits are set as for a name-based UUID, so the
+    result is a well-formed RFC 4122 UUID, not just 32 hex digits."""
+    raw = bytearray(_id_digest(filename)[:16])
+    raw[6] = (raw[6] & 0x0F) | 0x50  # version 5 (name-based, SHA)
+    raw[8] = (raw[8] & 0x3F) | 0x80  # RFC 4122 variant
+    return str(uuid.UUID(bytes=bytes(raw)))
+
+
+# The ID spellings a registry entry's `id_format` can name. A new engine with
+# yet another spelling adds a function here -- nothing else changes.
+ID_FORMATS = {
+    "godot_uid": godot_uid,
+    "guid": stable_guid,
+}
+
+
+def stable_id(filename, id_format):
+    """The stable ID of `filename` in `id_format` (a key of ID_FORMATS).
+    Raises ValueError for an unknown format."""
+    try:
+        return ID_FORMATS[id_format](filename)
+    except KeyError:
+        raise ValueError(f"unknown stable ID format: {id_format!r}") from None
+
+
+def _uid_subject(name, sidecar_suffixes):
     """The file a (template or output) name is about: itself, or -- for a
     sidecar -- the file it sits next to."""
-    for suffix in SIDECAR_SUFFIXES:
+    for suffix in sidecar_suffixes:
         if name.endswith(suffix):
             return name[: -len(suffix)]
     return name
 
 
-def uid_context(template_entries, context):
+def uid_context(template_entries, context, id_format, sidecar_suffixes=()):
     """One `uid_<name>` placeholder per file the set exports, keyed by the
     template's own name with the prefix placeholder and punctuation folded
-    out ("{{prefix}}palette.png.import.tpl" -> uid_palette_png), so the key a
-    template refers to does not depend on the active prefix -- while the ID
-    itself does, being the `stable_uid` of the real output filename.
+    out ("{{prefix}}multicolor.sdmat.tpl" -> uid_multicolor_sdmat), so the
+    key a template refers to does not depend on the active prefix -- while
+    the ID itself does, being the `stable_id` of the real output filename.
+    The placeholder name is the same for every `id_format`; only the value's
+    spelling differs. No `id_format` (None) -> no placeholders.
 
-    Sidecars map onto their subject, so a texture that `write_textures`
-    writes outside the template mechanism gets its key as soon as the set has
-    an `.import` template for it."""
+    Sidecars (output names ending in one of `sidecar_suffixes`) map onto
+    their subject ("{{prefix}}palette.png.import.tpl" -> uid_palette_png),
+    so a texture that `write_textures` writes outside the template mechanism
+    gets its key as soon as the set has a sidecar template for it."""
+    if id_format is None:
+        return {}
     uids = {}
     for entry in template_entries:
-        subject = _uid_subject(_strip_tpl(entry))
+        subject = _uid_subject(_strip_tpl(entry), sidecar_suffixes)
         key = "uid_" + re.sub(r"\W+", "_", subject.replace("{{prefix}}", "")).strip("_")
-        uids[key] = stable_uid(_render(subject, context))
+        uids[key] = stable_id(_render(subject, context), id_format)
     return uids
 
 
@@ -529,12 +570,15 @@ def render_set(set_id, out_dir, context):
     of written filenames. Raises ValueError for an unknown set, OSError on IO.
 
     `context` is extended by `uid_context` for the set's own files before
-    rendering, so templates can refer to each other by stable ID."""
+    rendering -- in the set's `id_format`, with its `sidecar_suffixes` -- so
+    templates can refer to each other by stable ID."""
     tdir = registry.template_dir(set_id)
     if tdir is None or not os.path.isdir(tdir):
         raise ValueError(f"unknown export template set: {set_id!r}")
     entries = sorted(e for e in os.listdir(tdir) if e.endswith(".tpl"))
-    context = {**context, **uid_context(entries, context)}
+    context = {**context, **uid_context(entries, context,
+                                        registry.id_format(set_id),
+                                        registry.sidecar_suffixes(set_id))}
     written = []
     for entry in entries:
         with open(os.path.join(tdir, entry), "r", encoding="utf-8") as f:

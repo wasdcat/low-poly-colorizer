@@ -8,7 +8,7 @@
 
 One entry per export target ("template set"): a human label shown in the
 export dropdown mapped to a folder of `.tpl` files under `addon/export/`.
-Godot is just one target -- supporting another engine means adding a template
+Godot and Stride are just two targets -- supporting another engine means adding a template
 folder plus an entry here IN THE SOURCE REPOSITORY, shipped as a new add-on
 version. This is not a runtime extension point: the installed add-on directory
 is owned by Blender and is never written to, neither by the add-on nor by the
@@ -17,6 +17,11 @@ user.
 The exporter (exporter.py) renders EVERY `.tpl` in the chosen set's folder
 into the chosen output directory, substituting the scene's material
 parameters (build_context). Each template uses whatever placeholders it needs.
+
+Everything engine-specific the exporter itself has to know -- how a stable
+file ID is spelled, which files are sidecars describing another file, which
+PNGs to write -- is a field of the set's entry here, never a branch on the
+set's id in exporter.py.
 """
 
 import os
@@ -40,6 +45,19 @@ import os
 # cheatsheet       optional, default False: also write the palette as a
 #                  labeled PNG for people (exporter.CHEATSHEET_FILENAME,
 #                  export/cheatsheet.py) -- not read by any template.
+#
+# Stable file IDs (exporter.uid_context), per set because every engine spells
+# them differently:
+# id_format        optional, default None: a key of exporter.ID_FORMATS
+#                  ("godot_uid" -> uid://..., "guid" -> 8-4-4-4-12 GUID).
+#                  Set, the render context gets one `uid_<name>` placeholder
+#                  per exported file, derived from its output filename only.
+#                  None means the set uses no IDs (no uid_* placeholders).
+# sidecar_suffixes optional, default (): output-name suffixes that mark a
+#                  file describing ANOTHER file (Godot: "x.png.import",
+#                  "x.gd.uid"). A sidecar carries its subject's ID instead of
+#                  its own -- which is how a PNG written by write_textures,
+#                  outside the template mechanism, gets an ID.
 TEMPLATE_SETS = (
     {
         "id": "godot",
@@ -62,6 +80,28 @@ TEMPLATE_SETS = (
         # Cheatsheet: a labeled palette PNG to look things up; its .import
         # sidecar ("skip") keeps Godot from importing or exporting it.
         "cheatsheet": True,
+        # ResourceUID text form; a texture's ID lives in its .import file,
+        # a script's / shader's in its .uid file.
+        "id_format": "godot_uid",
+        "sidecar_suffixes": (".import", ".uid"),
+    },
+    {
+        "id": "stride",
+        "label": "Stride Materials",
+        "dir": "stride",
+        "description": "Stride 4 material (.sdmat) + texture assets (.sdtex), multicolor only",
+        # Both data textures, read by stock material nodes (Texture color /
+        # Texture scalar with point filtering) -- no custom shader, so the
+        # material compiles in Game Studio like any hand-made one. Each PNG
+        # gets a .sdtex asset template that sets sRGB / premultiply / mips.
+        "palette_texture": True,
+        "preset_texture": True,
+        # Nothing reads it; it sits next to the assets for people.
+        "cheatsheet": True,
+        # Stride assets carry a GUID (`Id:`) and reference each other as
+        # `guid:url`. The .sdtex IS the asset (it points at its PNG via
+        # `Source:`), so it carries its own ID -- no sidecars.
+        "id_format": "guid",
     },
 )
 
@@ -99,6 +139,18 @@ def writes_cheatsheet(set_id):
     (default False)."""
     entry = get(set_id)
     return entry is not None and bool(entry.get("cheatsheet", False))
+
+
+def id_format(set_id):
+    """The set's stable-ID format (a key of exporter.ID_FORMATS), or None."""
+    entry = get(set_id)
+    return entry.get("id_format") if entry is not None else None
+
+
+def sidecar_suffixes(set_id):
+    """The set's sidecar output-name suffixes (default: none)."""
+    entry = get(set_id)
+    return tuple(entry.get("sidecar_suffixes", ())) if entry is not None else ()
 
 
 def enum_items():
