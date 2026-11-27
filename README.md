@@ -8,6 +8,7 @@
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 ![Blender](https://img.shields.io/badge/Blender-4.2%2B-orange)
 ![Godot](https://img.shields.io/badge/Godot-4.4%2B-orange)
+![Stride](https://img.shields.io/badge/Stride-4.4%20%28experimental%29-yellow)
 
 A high-efficiency Blender extension for painting mesh faces with PBR material properties using an interactive color palette texture – built for clean low-poly asset workflows and 1-click material & shader export to game engines like Godot 4.
 
@@ -21,7 +22,7 @@ Originally developed in-house for **WASDCAT Games'** Blender → Godot productio
 - **Single Draw-Call Surface:** All colored faces share a single material and import into the engine as one surface. Each face only stores two references in UV channels – its palette cell and its PBR preset (roughness, metallic, emission, clearcoat) – instead of needing one material per color.
 - **Procedural Geometry Nodes:** Full procedural workflow support via the `LPC Set Material` node group – drive palette cells and material presets directly inside modifier trees.
 - **Instant Live Assignment:** Click a palette cell in the GPU overlay to paint the selection immediately – no extra Assign step. *Sample* picks up color and preset from already painted faces.
-- **Engine-Ready Pipeline:** 1-click template-based export of prepared materials, shaders, and helper classes for Godot 4.4+ (extensible to other engines).
+- **Engine-Ready Pipeline:** 1-click template-based export of prepared materials, shaders, and helper classes for Godot 4.4+ (extensible to other engines). **Experimental:** a Stride 4 material export (multicolor only).
 
 ---
 
@@ -44,7 +45,7 @@ A separate repository shows Low Poly Colorizer material usage in action:
 
 ## Installation
 
-Requirement: **Blender 4.2 LTS or newer** (Extension system). The exported Godot files need **Godot 4.4 or newer**.
+Requirement: **Blender 4.2 LTS or newer** (Extension system). The exported Godot files need **Godot 4.4 or newer**. The experimental Stride export was tested with **Stride 4.4**.
 
 ### Online (Blender Extensions Platform)
 1. Open **Edit ▸ Preferences ▸ Get Extensions**.

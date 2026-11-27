@@ -5,7 +5,7 @@
 document:
   title: "Low Poly Colorizer"
   subtitle: "Official User Manual"
-  summary: "Compact guide for streamlined low-poly asset coloring in Blender and optimized material and texture export for Godot 4."
+  summary: "Compact guide for streamlined low-poly asset coloring in Blender and optimized material and texture export to game engines."
   author: "Frank Winter"
   version: "2.1.0"
   date: "auto"

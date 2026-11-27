@@ -15,7 +15,7 @@ All controls in Low Poly Colorizer are organized within a compact sidebar panel 
 | **③** | **Preset List & Actions** | Lists all material presets. The number on the right indicates the **refcount** (how many faces currently use this preset). Includes buttons to add (`+`), delete (`-`), and access the actions menu (`▾`). |
 | **④** | **PBR Properties** | Controls the physical material properties (*Roughness*, *Metallic*, *Emission*, *Clearcoat*) of the **currently active preset**. Changes propagate instantly to all faces using this preset. |
 | **⑤** | **Tools** | **Assign**: Assigns the active brush (color + preset) to the selection – selected faces in Edit Mode, whole objects in Object Mode.<br>**Sample**: *(Edit Mode only)* Loads color and preset of the selected faces into the panel. All selected faces must share the same color and preset.<br>**Select / Deselect**: *(Edit Mode only)* Adds all faces with the current color and preset to the selection, or removes them from it. |
-| **⑥** | **Export & Settings** | Target format selection from modular template sets (default: *Godot Materials*), **Export button** with automatic dirty tracking (turns red when the last export is out of date), and button to open **Settings…**. |
+| **⑥** | **Export & Settings** | Target format selection from modular template sets (default: *Godot Materials*; experimental: *Stride Materials (experimental)*), **Export button** with automatic dirty tracking (turns red when the last export is out of date), and button to open **Settings…**. |
 
 ---
 

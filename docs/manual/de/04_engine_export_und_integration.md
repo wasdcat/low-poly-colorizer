@@ -1,6 +1,6 @@
 # Engine-Export und Integration
 
-Low Poly Colorizer nutzt ein generisches, templatebasiertes Export-System (`.tpl`), das flexibel auf weitere Engines erweiterbar ist. Als mitgeliefertes Standard-Target dient **Godot 4** (*Godot Materials*); die exportierten Dateien benötigen **Godot 4.4 oder neuer**.
+Low Poly Colorizer nutzt ein generisches, templatebasiertes Export-System (`.tpl`), das flexibel auf weitere Engines erweiterbar ist. Als mitgeliefertes Standard-Target dient **Godot 4** (*Godot Materials*); die exportierten Dateien benötigen **Godot 4.4 oder neuer**. Als zweites Target liegt **Stride 4** (*Stride Materials (experimental)*) als experimentelle Vorschau bei.
 
 ## Der 1-Klick Export nach Godot
 
@@ -25,6 +25,33 @@ LPC exportiert **keine Meshes** (Modelle importieren Sie als `.blend` oder glTF 
    > Hinzufügen, Entfernen oder Umsortieren von Palettenspalten verschiebt die Spaltennummern. LPC rechnet die bemalten Meshes um, gespeicherte `.tres`-Dateien behalten aber ihre Nummer und zeigen nach dem nächsten Export auf eine andere Spalte – prüfen Sie sie nach einem solchen Umbau (wie bei Preset-Positionen).
 5. **Arbeitsablauf**: Änderungen an bemalten Flächen reisen mit dem Modell – Godot übernimmt sie beim Reimport der `.blend` bzw. glTF. Ein neuer LPC-Export ist nur nötig, wenn der Export-Button rot ist.
 
+## Experimentell: Export nach Stride
+
+> [!WARNING]
+> Der Stride-Export ist **experimentell**: Er ist neu, wurde nur mit Stride 4.4 getestet und kann sich in künftigen Versionen ändern. Bitte melden Sie Probleme.
+
+Wählen Sie *Stride Materials (experimental)* als Export-Ziel. Der Export schreibt in den gewählten Ordner:
+
+* **Texturen**: `lpc_palette.png` und `lpc_preset_lut.png`, jeweils mit einem Stride-Texture-Asset (`.sdtex`), das Kompression, Mipmaps und Premultiplied Alpha abschaltet und die Palette als sRGB, die LUT als Rohdaten liest.
+* **Material**: `lpc_multicolor.sdmat`, aus Stride's Standard-Materialknoten aufgebaut (kein eigener Shader) – Palettenfarbe aus `TEXCOORD0`, Roughness, Metalness und Emission aus der Preset-LUT über `TEXCOORD1`.
+* **Paletten-Spickzettel** und eine `README.md` mit den Details.
+* **Feste IDs**: Jedes Asset trägt eine stabile GUID, die nur vom Dateinamen abhängt. Verweise bleiben so über erneute Exporte hinweg gültig.
+
+Die Dateien verwenden:
+
+1. **Export in den Ordner `Assets`** Ihres Stride-Projekts (oder einen Unterordner); Game Studio übernimmt die Assets selbstständig. Lassen Sie den Farbraum auf *Linear* (Standard).
+2. **Das bemalte Modell** aus Blender als FBX oder glTF exportieren, mit `lpc_uv0` / `lpc_uv1` als ersten beiden UV-Maps (*Fix UV Maps*).
+3. **`lpc_multicolor` zuweisen**: im Material-Slot des Modells.
+
+Einschränkungen:
+
+* **Nur bemalte Meshes**: Für Stride gibt es kein `lpc_singlecolor`-Material und keine Hilfsklassen.
+* **Clearcoat wird angenähert**: Stride's Standard-Material kennt keinen Clearcoat pro Fläche. Der Export rechnet den Clearcoat jedes Presets deshalb in dessen Roughness ein (in Richtung *Clearcoat Roughness*). Lackierte Flächen wirken glatter, es gibt aber ein Glanzlicht statt einer Lackschicht über der Basis.
+* **Eingebackene Werte**: *Emission Factor*, *Clearcoat Roughness* und die Anzahl der Presets stehen im Material bzw. in der LUT – exportieren Sie erneut, wenn der Export-Button rot ist.
+
+> [!TIP]
+> Blinkt das Modell in Game Studio nach dem Zuweisen dauerhaft, wird der Shader noch kompiliert oder konnte nicht kompiliert werden. Starten Sie Game Studio einmal neu; blinkt es weiter rot, hilft das Log von Game Studio.
+
 ## Prozedurale Workflows mit Geometry Nodes
 
 Für prozedurale Meshes erzeugen Sie über das Preset-Zusatzmenü (**▾**) mit **Create Geometry Node Group** die Node-Gruppe `lpc_set_material`:
@@ -45,7 +72,7 @@ Low Poly Colorizer nutzt zwei definierte UV-Kanäle: `lpc_uv0` (Paletten-Farbkoo
 Werden Meshes zusammengefügt (`Ctrl + J`), durch Booleans zerschnitten oder importiert, können UV-Kanäle vertauscht sein oder fehlen. LPC blendet in diesem Fall am unteren Rand des N-Panels automatisch eine Warnbox ein:
 
 > [!WARNING]
-> **UV maps need fixing:** Ein Klick auf den Button **Fix UV Maps** (nur im Object Mode) legt fehlende LPC-UV-Maps neu an, verschiebt `lpc_uv0` / `lpc_uv1` auf die ersten beiden UV-Slots und sichert den sauberen Import in Godot. Musste `lpc_uv0` neu angelegt werden, sind die Palettenfarben der betroffenen Flächen verloren – LPC meldet das, und diese Flächen müssen neu bemalt werden.
+> **UV maps need fixing:** Ein Klick auf den Button **Fix UV Maps** (nur im Object Mode) legt fehlende LPC-UV-Maps neu an, verschiebt `lpc_uv0` / `lpc_uv1` auf die ersten beiden UV-Slots und sichert den sauberen Import in die Game-Engine. Musste `lpc_uv0` neu angelegt werden, sind die Palettenfarben der betroffenen Flächen verloren – LPC meldet das, und diese Flächen müssen neu bemalt werden.
 
 
 ## Troubleshooting-Checkliste

@@ -15,7 +15,7 @@ Die gesamte Bedienung von Low Poly Colorizer findet in einem kompakten Bedienfel
 | **③** | **Preset-Liste & Aktionen** | Listet alle Material-Presets. Die Zahl rechts ist der **Refcount** (wie viele Flächen dieses Preset nutzen). Enthält Buttons für neues Preset (`+`), Löschen (`-`) und das Menü für erweiterte Aktionen (`▾`). |
 | **④** | **PBR-Eigenschaften** | Steuert die physikalischen Materialwerte (*Roughness*, *Metallic*, *Emission*, *Clearcoat*) des **aktuell aktiven Presets**. Änderungen wirken sofort auf alle Flächen, die dieses Preset nutzen. |
 | **⑤** | **Werkzeuge (Tools)** | **Assign**: Weist den aktuellen Pinsel (Farbe + Preset) der Auswahl zu – im Edit Mode den selektierten Flächen, im Object Mode ganzen Objekten.<br>**Sample**: *(Nur Edit Mode)* Übernimmt Farbe und Preset der selektierten Flächen ins Panel. Alle selektierten Flächen müssen dieselbe Farbe und dasselbe Preset haben.<br>**Select / Deselect**: *(Nur Edit Mode)* Fügt alle Flächen mit aktueller Farbe und aktuellem Preset zur Auswahl hinzu bzw. entfernt sie daraus. |
-| **⑥** | **Export & Einstellungen** | Auswahl des templatebasierten Ziel-Formats (Standard: *Godot Materials*), **Export-Button** mit automatischer Schmutzerkennung (färbt sich rot, sobald der letzte Export veraltet ist) und Aufruf des Dialogs **Settings…**. |
+| **⑥** | **Export & Einstellungen** | Auswahl des templatebasierten Ziel-Formats (Standard: *Godot Materials*; experimentell: *Stride Materials (experimental)*), **Export-Button** mit automatischer Schmutzerkennung (färbt sich rot, sobald der letzte Export veraltet ist) und Aufruf des Dialogs **Settings…**. |
 
 ---
 
