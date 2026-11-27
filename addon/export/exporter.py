@@ -144,6 +144,34 @@ def _preset_values(scene):
     return values or [(0.0, 0.0, 0.0, 0.0)]
 
 
+def coat_blended_roughness(roughness, clearcoat, coat_roughness):
+    """Roughness with the preset's clearcoat folded in, for targets without a
+    second (coat) specular lobe: the clearcoat amount (clamped to 0..1) pulls
+    the roughness toward the global coat roughness, r + c * (cr - r).
+
+    An approximation -- one lobe instead of two: a fully coated face is as
+    smooth as the coat, but a matte base under a glossy coat just reads
+    smoother; the coat's own highlight on top of the base's is lost."""
+    c = min(max(clearcoat, 0.0), 1.0)
+    return roughness + c * (coat_roughness - roughness)
+
+
+def preset_lut_pixels(scene, set_id):
+    """The preset LUT as `set_id` gets it, as a flat RGBA buffer in the
+    layout of `model_presets.build_preset_lut_pixels`: the raw preset values
+    (`_preset_values`), with R replaced by `coat_blended_roughness` if the
+    set's registry entry asks for `coat_into_roughness`. B keeps the raw
+    clearcoat either way."""
+    coat = registry.coat_into_roughness(set_id)
+    coat_roughness = scene.lpc_globals.clearcoat_roughness
+    pixels = []
+    for roughness, metallic, clearcoat, emission in _preset_values(scene):
+        if coat:
+            roughness = coat_blended_roughness(roughness, clearcoat, coat_roughness)
+        pixels += (roughness, metallic, clearcoat, emission)
+    return pixels
+
+
 def _preset_values_glsl(scene):
     """The presets as the body of a GLSL-style `vec4` array initializer, one
     preset per line with its list position and name as a comment -- the
@@ -433,11 +461,15 @@ def write_textures(scene, out_dir, set_id):
     `preset_texture`) -- via Blender's own `Image.save()`, which guarantees
     the exported pixels are byte-identical to whatever the Blender preview
     just sampled (no separate encoder to risk a rounding/gamma divergence).
+    A set with `coat_into_roughness` gets a LUT that differs from the
+    preview's on purpose (`preset_lut_pixels`); it goes through a throwaway
+    image set up like the preview's, so it is encoded the same way.
     Returns the list of written filenames."""
+    lut_variant = registry.coat_into_roughness(set_id)
     wanted = []
     if registry.writes_palette_texture(set_id):
         wanted.append((preview_material.ensure_palette_image, PALETTE_IMAGE_FILENAME))
-    if registry.writes_preset_texture(set_id):
+    if registry.writes_preset_texture(set_id) and not lut_variant:
         wanted.append((preview_material.ensure_preset_lut_image, PRESET_LUT_IMAGE_FILENAME))
     written = []
     for ensure_image, filename in wanted:
@@ -447,6 +479,11 @@ def write_textures(scene, out_dir, set_id):
         image.file_format = "PNG"
         image.save()
         written.append(filename)
+    if registry.writes_preset_texture(set_id) and lut_variant:
+        preview_material.save_preset_lut_png(
+            preset_lut_pixels(scene, set_id),
+            os.path.join(out_dir, PRESET_LUT_IMAGE_FILENAME))
+        written.append(PRESET_LUT_IMAGE_FILENAME)
     return written
 
 

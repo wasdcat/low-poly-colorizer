@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-11-27
+
 ### Added
-- **Stride export** (*Stride Materials*, multicolor only): writes `lpc_multicolor.sdmat` plus `lpc_palette.sdtex` / `lpc_preset_lut.sdtex` texture assets next to the two PNGs, a `README.md` and the palette cheatsheet. The material uses Stride's stock texture nodes (point filtering, palette from `TEXCOORD0`, preset LUT from `TEXCOORD1`) for diffuse, roughness, metalness and emission — no custom shader. The texture assets switch off compression, mipmaps and premultiplied alpha, and sample the palette as sRGB and the LUT as raw data. Every asset carries a stable GUID derived from its file name. Not yet supported: the singlecolor variant and the preset's clearcoat.
+- **Stride export, experimental** (*Stride Materials (experimental)*, multicolor only): writes `lpc_multicolor.sdmat` plus `lpc_palette.sdtex` / `lpc_preset_lut.sdtex` texture assets next to the two PNGs, a `README.md` and the palette cheatsheet. The material uses Stride's stock texture nodes (point filtering, palette from `TEXCOORD0`, preset LUT from `TEXCOORD1`) for diffuse, roughness, metalness and emission — no custom shader. The texture assets switch off compression, mipmaps and premultiplied alpha, and sample the palette as sRGB and the LUT as raw data. Every asset carries a stable GUID derived from its file name. Stride's stock material has no clearcoat amount per face, so the preset's clearcoat is approximated: the exported LUT's roughness channel is pulled toward the *Clearcoat Roughness* by the clearcoat amount (one highlight instead of a coat on top of the base; the README explains it). Not yet supported: the singlecolor variant.
 
 ### Changed
 - **Export targets are configured entirely in the registry**: the stable-ID format (`id_format`: Godot `uid://…` or GUID) and the sidecar suffixes (`sidecar_suffixes`) are fields of a template set instead of Godot constants in the exporter. A new engine is a template folder plus a registry entry, and a new ID format is one function in `ID_FORMATS`. The Godot export is byte-identical.

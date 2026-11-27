@@ -42,6 +42,12 @@ import os
 #                  (preset_values_* placeholders).
 # The text placeholders are always in the render context, whatever the flags
 # say -- a flag only decides whether the PNG is written as well.
+# coat_into_roughness optional, default False: for targets without a
+#                  clearcoat lobe. The written preset LUT's R then holds the
+#                  roughness with the clearcoat folded in
+#                  (exporter.coat_blended_roughness) instead of the raw
+#                  roughness; B still holds the raw clearcoat. Only affects
+#                  the PNG -- the preset_values_* text stays raw.
 # cheatsheet       optional, default False: also write the palette as a
 #                  labeled PNG for people (exporter.CHEATSHEET_FILENAME,
 #                  export/cheatsheet.py) -- not read by any template.
@@ -87,15 +93,19 @@ TEMPLATE_SETS = (
     },
     {
         "id": "stride",
-        "label": "Stride Materials",
+        "label": "Stride Materials (experimental)",
         "dir": "stride",
-        "description": "Stride 4 material (.sdmat) + texture assets (.sdtex), multicolor only",
+        "description": "Experimental: Stride 4 material (.sdmat) + texture assets (.sdtex), multicolor only",
         # Both data textures, read by stock material nodes (Texture color /
         # Texture scalar with point filtering) -- no custom shader, so the
         # material compiles in Game Studio like any hand-made one. Each PNG
         # gets a .sdtex asset template that sets sRGB / premultiply / mips.
         "palette_texture": True,
         "preset_texture": True,
+        # Stride has no clearcoat amount a stock material could drive per
+        # face (its ClearCoat feature is a fixed car-paint model), so the
+        # coat is approximated: baked into the LUT's roughness at export.
+        "coat_into_roughness": True,
         # Nothing reads it; it sits next to the assets for people.
         "cheatsheet": True,
         # Stride assets carry a GUID (`Id:`) and reference each other as
@@ -132,6 +142,13 @@ def writes_preset_texture(set_id):
     """Whether exporting `set_id` writes the preset LUT PNG (default True)."""
     entry = get(set_id)
     return entry is not None and bool(entry.get("preset_texture", True))
+
+
+def coat_into_roughness(set_id):
+    """Whether `set_id`'s preset LUT PNG carries the clearcoat folded into
+    roughness (R) instead of the raw roughness (default False)."""
+    entry = get(set_id)
+    return entry is not None and bool(entry.get("coat_into_roughness", False))
 
 
 def writes_cheatsheet(set_id):

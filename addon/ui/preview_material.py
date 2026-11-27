@@ -290,6 +290,28 @@ def ensure_preset_lut_image(scene):
     return image
 
 
+def save_preset_lut_png(pixels, path):
+    """Save `pixels` (flat RGBA, one texel per preset, the layout of
+    `ensure_preset_lut_image`) as a PNG at `path` -- for an export whose LUT
+    differs from the preview's (exporter.preset_lut_pixels). Goes through a
+    throwaway image set up exactly like the managed LUT (float buffer,
+    Non-Color), so it is encoded the same way, and removes it afterwards:
+    it must not end up in the .blend."""
+    width = len(pixels) // 4
+    image = bpy.data.images.new(
+        _PRESET_LUT_IMAGE_NAME + "_export", width=width, height=1,
+        alpha=True, float_buffer=True,
+    )
+    try:
+        image.colorspace_settings.name = "Non-Color"
+        image.pixels.foreach_set(pixels)
+        image.filepath_raw = path
+        image.file_format = "PNG"
+        image.save()
+    finally:
+        bpy.data.images.remove(image)
+
+
 def update_palette_image(scene):
     """Palette params changed -> regenerate the palette image in place. No
     mesh traversal: every face's lpc_uv0 already names a (x, y) cell

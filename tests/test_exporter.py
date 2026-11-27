@@ -359,6 +359,41 @@ class TestRegistryTextures(unittest.TestCase):
             registry.TEMPLATE_SETS = original
 
 
+class TestCoatIntoRoughness(unittest.TestCase):
+    def test_registry_flag(self):
+        self.assertFalse(registry.coat_into_roughness("godot"))  # native clearcoat
+        self.assertTrue(registry.coat_into_roughness("stride"))  # no coat lobe
+        self.assertFalse(registry.coat_into_roughness("nope"))
+
+    def test_blend(self):
+        blend = exporter.coat_blended_roughness
+        self.assertEqual(blend(0.8, 0.0, 0.1), 0.8)            # no coat: untouched
+        self.assertAlmostEqual(blend(0.8, 1.0, 0.1), 0.1)      # full coat: coat roughness
+        self.assertAlmostEqual(blend(0.8, 0.5, 0.1), 0.45)     # halfway
+        self.assertAlmostEqual(blend(0.2, 1.0, 0.6), 0.6)      # a rougher coat works too
+        self.assertAlmostEqual(blend(0.8, 2.0, 0.1), 0.1)      # amount clamped to 0..1
+        self.assertEqual(blend(0.8, -1.0, 0.1), 0.8)
+
+    def test_godot_lut_is_raw(self):
+        self.assertEqual(exporter.preset_lut_pixels(_scene(), "godot"), [
+            0.8, 0.0, 0.0, 0.0,
+            0.8, 0.0, 0.0, 1.0,
+            0.2, 1.0, 0.5, 0.0,
+        ])
+
+    def test_stride_lut_folds_coat_into_roughness_only(self):
+        # Chrome: roughness 0.2, clearcoat 0.5, coat roughness 0.1 -> 0.15;
+        # B keeps the raw clearcoat, the uncoated presets are untouched.
+        pixels = exporter.preset_lut_pixels(_scene(), "stride")
+        self.assertEqual(pixels[:8], [0.8, 0.0, 0.0, 0.0, 0.8, 0.0, 0.0, 1.0])
+        self.assertAlmostEqual(pixels[8], 0.15)
+        self.assertEqual(pixels[9:], [1.0, 0.5, 0.0])
+
+    def test_empty_preset_list_yields_one_texel(self):
+        self.assertEqual(exporter.preset_lut_pixels(_scene(presets=[]), "stride"),
+                         [0.0, 0.0, 0.0, 0.0])
+
+
 class TestRegistryConsistency(unittest.TestCase):
     """Every registered set must be exportable -- checked for all of them, so
     a future engine's entry is covered without writing a test for it."""
